@@ -751,6 +751,9 @@ function searchProviderIsLoggedIn(provider) {
   return !!(st && st.loggedIn);
 }
 function searchProviderCanSearch(provider) {
+  // LX 音源模式下汽水的播放能力来自它自己的登录体系，而登录入口已经下线，
+  // 留着它只会搜出一堆点了放不了的歌，直接不参与搜索。
+  if (provider === 'qishui' && typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) return false;
   var st = searchProviderStatus(provider) || {};
   var capabilities = st.capabilities || {};
   if (st.searchReady === true || st.publicCatalog === true || capabilities.search === true) return true;

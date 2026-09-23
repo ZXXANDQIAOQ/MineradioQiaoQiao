@@ -100,3 +100,25 @@ test('平台登录态轮询在 LX 音源模式下不再启动', () => {
     assert.match(body, /lxOnlyModeEnabled\(\)\) return;/, `${name} 应先判断 LX 音源模式`);
   });
 });
+
+test('播放链路与状态行对「音源已就绪」的判断停在同一层', () => {
+  // 这里曾经多剥了一层（cache.status.status.status）：状态行显示「已就绪」，
+  // 但取链判断拿到的是 undefined，于是音源被静默跳过 ——
+  // 酷我 / 咪咕（没有内置取链）搜出来点了放不了，网易云 / 酷狗还在走内置接口。
+  const readyAt = panelText.indexOf('function userApiStatusReady()');
+  assert.notEqual(readyAt, -1, '缺少 userApiStatusReady');
+  const readyBody = panelText.slice(readyAt, panelText.indexOf('function userApiActiveName()'));
+  assert.match(readyBody, /cache\.status\.status === true/);
+  assert.doesNotMatch(readyBody, /status\.status\.status/);
+  // 状态行用的就是这一层，两处必须一致
+  assert.match(panelText, /else if \(status\.status === true\)/);
+});
+
+test('LX 音源模式下汽水不参与综合搜索，搜索标签也收起', () => {
+  const searchText = read('public/js/modules/05-playback/07-search.js');
+  assert.match(
+    searchText,
+    /function searchProviderCanSearch\(provider\) \{[\s\S]{0,400}provider === 'qishui'[\s\S]{0,200}lxOnlyModeEnabled\(\)\) return false;/
+  );
+  assert.match(modeText, /search-mode-qishui[\s\S]{0,200}hidden = true/);
+});

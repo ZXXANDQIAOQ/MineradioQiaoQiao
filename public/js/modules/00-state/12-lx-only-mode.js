@@ -40,6 +40,14 @@ function applyLxOnlyModeChrome() {
   if (!lxOnlyModeEnabled()) return;
   var root = document.documentElement;
   if (root && root.classList) root.classList.add('lx-only-mode');
+  // 搜索标签栏里的汽水也一起收起来：它没法从 LX 音源取链，
+  // 留着只会让人搜到放不了的歌（后端 searchProviderCanSearch 同步排除）。
+  var qishuiTab = document.getElementById('search-mode-qishui');
+  if (qishuiTab) {
+    qishuiTab.hidden = true;
+    qishuiTab.setAttribute('aria-hidden', 'true');
+    qishuiTab.classList.remove('active');
+  }
   var btn = document.getElementById('user-btn');
   if (!btn) return;
   btn.setAttribute('aria-hidden', 'true');

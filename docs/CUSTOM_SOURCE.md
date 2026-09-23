@@ -108,6 +108,17 @@ quick-check.bat full                             # 再加 Electron 运行时冒�
 - 封面（`pic`）接口已通但未接入 UI，封面仍来自内置接口。
 - 音源脚本不做混淆/签名校验，导入即为信任。
 - 音质档位（`qualitys`）由脚本声明，与内置档位不是一套，所以不会触发「音质降级」提示。
+  播放时 Mineradio 会把内置档位先翻译成脚本认识的标识，再按脚本声明的音质表退让：
+
+  | Mineradio | 音源脚本 |
+  | --- | --- |
+  | `standard` | `128k` |
+  | `exhigh` | `320k` |
+  | `lossless` | `flac` |
+  | `hires` / `jymaster` | `flac24bit` |
+
+  例如脚本只声明 `128k / 320k / flac` 时，请求 `hires` 会落到 `flac`，
+  不会把 `lossless` 这类内置档位原样透传（那会变成 `level=undefined`）。
 
 ## 来源与许可
 

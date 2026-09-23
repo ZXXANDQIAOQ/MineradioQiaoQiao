@@ -60,6 +60,8 @@ LX 音源按「页码」翻页，各家每页返回的条数并不总等于请�
   播放链路对这两个平台显式返回「没有内置地址」，不会拿别家的 id 去问网易云；
   音源脚本也拿不到时，按既有的「无可用音源」流程提示。
 - 想在音源脚本里支持这两家，脚本需声明 `kw` / `mg` 平台，且支持 `musicUrl` 动作。
+- **汽水**在 LX 音源模式下不参与综合搜索（它的播放能力来自已经下线的登录入口），
+  标签栏里的 QS 也一并收起，避免搜出点了放不了的歌。
 
 ## 自检
 
@@ -69,7 +71,13 @@ node --test tests/lx-search.test.js tests/lx-search-frontend.test.js
 
 :: 联网冒烟：五个平台真实接口 + /api/lx/search 端点
 node scripts/check-lx-search-live.js
+
+:: 真实渲染进程里跑一遍「搜索 → 点播放 → 取链」（会调用本机已启用的音源脚本）
+node scripts/check-lx-playback-live.js
 ```
+
+`check-lx-playback-live.js` 按平台逐首点播并打印 `[UserApi]` 取链日志，
+排查「搜到歌放不了」时先用它，能看到 `audio.src` 到底落在内置接口还是音源脚本上。
 
 Electron 渲染进程里的标签栏行为由 `scripts/check-user-api-panel-live.js` 的
 「1d. LX 搜索标签」段覆盖。

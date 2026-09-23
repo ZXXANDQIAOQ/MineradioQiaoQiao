@@ -373,3 +373,38 @@ test('Mineradio provider 与 LX musicInfo 字段映射符合脚本取值习惯',
   assert.equal(tx.interval, 240);
   assert.equal(tx.meta.id, '123456');
 });
+
+test('音源音质档位：内置档位翻译成脚本标识，并按脚本声明的能力退让', async () => {
+  const manager = new UserApiManager({ store: new UserApiStore(makeDataDir()) });
+  manager.runtime = {
+    inited: true,
+    sources: { kg: { type: 'music', actions: ['musicUrl'], qualitys: ['128k', '320k', 'flac'] } },
+    canHandle: () => true,
+    request: async (payload) => {
+      manager.__lastRequest = payload;
+      return { data: { url: 'https://example.com/a.mp3' } };
+    },
+  };
+  manager.status = { status: true, message: 'ok' };
+
+  // 内置档位 → 脚本标识
+  assert.equal(manager.normalizeQuality('kg', 'standard'), '128k');
+  assert.equal(manager.normalizeQuality('kg', 'exhigh'), '320k');
+  assert.equal(manager.normalizeQuality('kg', 'lossless'), 'flac');
+  // 脚本没有 flac24bit：hires / jymaster 退到 flac，而不是原样透传
+  assert.equal(manager.normalizeQuality('kg', 'hires'), 'flac');
+  assert.equal(manager.normalizeQuality('kg', 'jymaster'), 'flac');
+  // 已经是脚本标识就原样保留；空值挑脚本最高可用
+  assert.equal(manager.normalizeQuality('kg', '320k'), '320k');
+  assert.equal(manager.normalizeQuality('kg', ''), 'flac');
+
+  // 真正取链时带过去的必须是翻译后的档位
+  // （曾经把 lossless 原样透传，脚本拿到的 level=undefined）
+  await manager.getMusicUrl('kg', { source: 'kg', songmid: 'HASH' }, 'lossless');
+  assert.equal(manager.__lastRequest.info.type, 'flac');
+
+  // 脚本只声明到 320k 时继续往下退
+  manager.runtime.sources.kg.qualitys = ['128k', '320k'];
+  assert.equal(manager.normalizeQuality('kg', 'lossless'), '320k');
+  assert.equal(manager.pickQuality('kg'), '320k');
+});

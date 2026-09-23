@@ -80,7 +80,11 @@ function userApiStatusSnapshot() {
 
 function userApiStatusReady() {
   var cache = MINERADIO_USER_API_STATUS_CACHE;
-  return !!(cache && cache.status && cache.status.status && cache.status.status.status === true);
+  // 缓存里放的是主进程 getStatus() 的整包返回：
+  //   { activeId, active, status: { status: true, message }, sources, list, ... }
+  // 「有没有就绪」看的是 status.status，别再往下多剥一层
+  // （多剥一层会永远拿到 undefined，取链被静默跳过，酷我/咪咕就没有内置接口可兜底了）。
+  return !!(cache && cache.status && cache.status.status === true);
 }
 
 function userApiActiveName() {
@@ -508,9 +512,15 @@ async function userApiResolveFallbackData(song, provider, quality) {
 }
 
 async function userApiRequestPlaybackUrl(song, provider, quality, reason) {
-  if (!userApiStatusReady()) return null;
+  if (!userApiStatusReady()) {
+    console.warn('[UserApi] 音源还没就绪，跳过' + reason + '取链');
+    return null;
+  }
   var lxSource = userApiLxSourceOf(song);
-  if (!lxSource) return null;
+  if (!lxSource) {
+    console.warn('[UserApi] ' + userApiProviderKeyOf(song) + ' 没有对应的音源平台，跳过' + reason + '取链');
+    return null;
+  }
   if (!userApiSupports(lxSource, 'musicUrl')) {
     console.warn('[UserApi] 当前音源不支持平台 ' + lxSource + '，跳过' + reason);
     return null;

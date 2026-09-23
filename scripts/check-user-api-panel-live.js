@@ -293,7 +293,26 @@ async function main() {
         userBtnPointer: cs ? cs.pointerEvents : '(缺)',
         userBtnAria: btn ? (btn.getAttribute('aria-hidden') || '') : '',
         modalShown: !!(modal && modal.classList.contains('show')),
-        trialBtnText: (document.getElementById('trial-login-btn') || { textContent: '' }).textContent
+        trialBtnText: (document.getElementById('trial-login-btn') || { textContent: '' }).textContent,
+        // 播放链路用的 userApiStatusReady() 必须和状态行用的是同一层判断：
+        // 之前多剥了一层 status.status.status，UI 显示「已就绪」但取链被静默跳过。
+        statusReadyConsistent: (function () {
+          var cache = (typeof MINERADIO_USER_API_STATUS_CACHE !== 'undefined') ? MINERADIO_USER_API_STATUS_CACHE : null;
+          var cacheReady = !!(cache && cache.status && cache.status.status === true);
+          var fnReady = (typeof userApiStatusReady === 'function') ? userApiStatusReady() : null;
+          return cacheReady === fnReady;
+        })(),
+        cacheReady: (function () {
+          var cache = (typeof MINERADIO_USER_API_STATUS_CACHE !== 'undefined') ? MINERADIO_USER_API_STATUS_CACHE : null;
+          return !!(cache && cache.status && cache.status.status === true);
+        })(),
+        qishuiTabHidden: (function () {
+          var tab = document.getElementById('search-mode-qishui');
+          return !!(tab && tab.hidden === true);
+        })(),
+        musicSearchProviders: (typeof activeSearchProvidersForMode === 'function')
+          ? activeSearchProvidersForMode('song').join(',')
+          : '(缺)'
       });
     })()`);
     const lxOnly = JSON.parse(lxOnlyRaw);
@@ -303,6 +322,10 @@ async function main() {
       lxOnly.userBtnVisibility + '/' + lxOnly.userBtnPointer);
     check('账号入口对读屏也隐藏', lxOnly.userBtnAria === 'true', lxOnly.userBtnAria);
     check('初始没有登录弹窗', lxOnly.modalShown === false);
+    check('播放链路与状态行对「音源已就绪」的判断一致', lxOnly.statusReadyConsistent === true,
+      '缓存=' + lxOnly.cacheReady);
+    check('LX 模式下汽水不参与综合搜索', lxOnly.musicSearchProviders.indexOf('qishui') < 0, lxOnly.musicSearchProviders);
+    check('LX 模式下汽水搜索标签已收起', lxOnly.qishuiTabHidden === true);
 
     const gateRaw = await evaluate(`(async function () {
       var modal = document.getElementById('login-modal');

@@ -758,11 +758,13 @@ function handlePlaybackUnavailable(song, data) {
   showSourceFallbackNotice(notice.title, notice.body);
   // LX 音源模式：登录入口已下线，需要权限的歌改成引导去音源，而不是弹登录
   if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) {
-    if (category === 'login_required') {
-      setTimeout(function () {
-        lxOnlyModeHint('这首歌换一个音源脚本可能就能播。');
-      }, 520);
-    }
+    // LX 模式下没有任何平台可以接管，把「为什么放不了」直接说清楚，
+    // 否则「没有其它已登录平台可接管」这种提示在 LX 模式里完全是误导。
+    setTimeout(function () {
+      lxOnlyModeHint(category === 'login_required'
+        ? '这首歌换一个音源脚本可能就能播。'
+        : '这首歌没有从音源取到可播放地址：可以在「自定义音源」里换一个脚本，或换一首同名的其它平台版本。');
+    }, 520);
     return;
   }
   if (category === 'login_required') {

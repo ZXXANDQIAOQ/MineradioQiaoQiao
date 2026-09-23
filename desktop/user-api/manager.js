@@ -18,6 +18,17 @@ const { UserApiRuntime } = require('./runtime');
 
 const MAX_LOGS = 300;
 
+/** LX 音源脚本认的音质标识，从高到低 */
+const LX_QUALITY_LEVELS_DESC = ['flac24bit', 'flac', '320k', '128k'];
+
+/** Mineradio 的音质档位 → LX 音质标识（音源脚本只认右边这一套） */
+const QUALITY_ALIAS = {
+  standard: '128k', low: '128k', normal: '128k', '128k': '128k',
+  high: '320k', exhigh: '320k', higher: '320k', '320k': '320k',
+  lossless: 'flac', sq: 'flac', flac: 'flac',
+  hires: 'flac24bit', 'hi-res': 'flac24bit', jymaster: 'flac24bit', master: 'flac24bit', flac24bit: 'flac24bit',
+};
+
 /**
  * 把常见的「网页版」代码链接纠正成直链。
  * 用户从浏览器地址栏复制过来的多半是 blob 页面，直接拿去 fetch 只会拿到 HTML。
@@ -323,7 +334,7 @@ class UserApiManager {
   async getMusicUrl(source, musicInfo, quality) {
     if (!this.isReady()) throw new Error('自定义源未就绪');
     if (!this.runtime.canHandle(source, 'musicUrl')) throw new Error('该音源不支持平台 ' + source);
-    const type = quality || this.pickQuality(source);
+    const type = this.normalizeQuality(source, quality);
     const result = await this.runtime.request({
       source,
       action: 'musicUrl',
@@ -351,10 +362,31 @@ class UserApiManager {
   /** 优先挑高质量，脚本不支持时逐级退让 */
   pickQuality(source) {
     const list = this.qualitysFor(source);
-    for (const candidate of ['flac24bit', 'flac', '320k', '128k']) {
+    for (const candidate of LX_QUALITY_LEVELS_DESC) {
       if (list.includes(candidate)) return candidate;
     }
     return list[0] || '128k';
+  }
+
+  /**
+   * 把 Mineradio 的音质档位翻译成 LX 音源脚本认识的标识。
+   *
+   * Mineradio 用的是 standard / exhigh / lossless / hires / jymaster，
+   * 音源脚本只认 128k / 320k / flac / flac24bit —— 直接透传会变成
+   * level=undefined，脚本要么报错要么给出无效链接。
+   * 翻译完再按脚本声明的音质表逐级退让，避免请求了它给不出的档位。
+   */
+  normalizeQuality(source, quality) {
+    const raw = String(quality || '').trim().toLowerCase();
+    const mapped = QUALITY_ALIAS[raw] || (LX_QUALITY_LEVELS_DESC.includes(raw) ? raw : '');
+    if (!mapped) return this.pickQuality(source);
+    const supported = this.qualitysFor(source);
+    if (!supported.length) return mapped;
+    const wanted = LX_QUALITY_LEVELS_DESC.indexOf(mapped);
+    for (let i = wanted; i < LX_QUALITY_LEVELS_DESC.length; i += 1) {
+      if (supported.includes(LX_QUALITY_LEVELS_DESC[i])) return LX_QUALITY_LEVELS_DESC[i];
+    }
+    return this.pickQuality(source);
   }
 
   destroy() {
