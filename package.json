@@ -9,9 +9,9 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build:win": "electron-builder --win nsis",
-    "build:win:dir": "electron-builder --win dir",
-    "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"
+    "build:win": "node scripts/electron-builder-run.js --win nsis",
+    "build:win:dir": "node scripts/electron-builder-run.js --win dir",
+    "build:win:internal-beta": "node scripts/electron-builder-run.js --config electron-builder.internal-beta.json --win nsis --publish never"
   },
   "build": {
     "appId": "com.mineradio.desktop",

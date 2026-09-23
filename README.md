@@ -88,6 +88,26 @@ npm run build:win
 
 桌面版入口由 Electron 主进程加载本地服务。`npm run build:win` 会生成 Windows NSIS 安装包，产物位于 `dist/`。
 
+### 打包成 exe
+
+不想每次用 `npm start` 起开发态，可以把工程编成能直接双击的 exe。Windows 下双击根目录的 `build-win.bat` 即可（也可以直接敲 npm 脚本）：
+
+```bash
+npm run build:win:dir   # 免安装绿色版，最快
+npm run build:win       # NSIS 安装包
+```
+
+| 产物 | 说明 |
+| --- | --- |
+| `dist/win-unpacked/Mineradio.exe` | 免安装绿色版，双击直接跑，整个 `win-unpacked` 文件夹可以拷走 |
+| `dist/Mineradio-2.2.0-Setup.exe` | 安装包，会创建桌面与开始菜单快捷方式 |
+
+`build-win.bat` 支持带参数：`build-win.bat dir` 只出绿色版，`build-win.bat setup` 只出安装包，不带参数则两个都出。
+
+打包前会自动装好 Electron 运行时（约 140 MB）和 winCodeSign / nsis 工具集，**首次构建要等几分钟**。这些下载走的入口在 `scripts/electron-builder-run.js`，已经默认指向 npmmirror 镜像；直连 GitHub 卡在 `packaging` 不动，多半就是这里没换源。想自己换源，先 `set ELECTRON_MIRROR=...` 再跑，脚本不会覆盖已有变量。
+
+自定义音源脚本、`%APPDATA%/Mineradio/` 下的用户数据都会随安装包一起沿用，重装不丢。
+
 ## 更新机制
 
 Mineradio 会请求 GitHub Releases latest 检测新版本。远端版本高于本地版本时，应用内更新入口会展示 Release 内容，并通过系统浏览器打开可选网盘线路；即使 Release 附带完整安装包，`2.0.3+` 客户端也不会读取、下载、缓存或应用该附件与补丁。
