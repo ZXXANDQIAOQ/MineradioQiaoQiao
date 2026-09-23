@@ -2129,6 +2129,18 @@ body.empty-home-active.diy-mode #search-area:not(.has-results) #search-mode-tabs
   background: rgba(69, 214, 143, .075)
 }
 
+.tag-source.kuwo {
+  color: #ffe6c9;
+  border-color: rgba(255, 178, 107, .30);
+  background: rgba(255, 178, 107, .075)
+}
+
+.tag-source.migu {
+  color: #e6dcff;
+  border-color: rgba(167, 139, 250, .32);
+  background: rgba(167, 139, 250, .085)
+}
+
 .tag-source.spotify {
   color: #d8ffe2;
   border-color: rgba(30, 215, 96, .34);

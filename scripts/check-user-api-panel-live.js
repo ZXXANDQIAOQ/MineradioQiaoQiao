@@ -320,6 +320,62 @@ async function main() {
     check('点账号按钮不会弹登录', gate.afterUserBtn === false);
     check('openProviderLogin 被拦住', gate.afterProviderLogin === false);
 
+    console.log('\n=== 1d. LX 搜索标签（不联网，只看接线） ===');
+    const searchTabs = JSON.parse(await evaluate(`(function () {
+      var ids = ['song', 'netease', 'qq', 'kugou', 'kuwo', 'migu', 'qishui', 'podcast'];
+      var missing = ids.filter(function (id) { return !document.getElementById('search-mode-' + id); });
+      var urlFor = function (provider) {
+        return typeof searchProviderUrl === 'function' ? searchProviderUrl(provider, 'probe', 12, 0) : '(缺)';
+      };
+      return JSON.stringify({
+        missing: missing,
+        mode: typeof searchMode === 'string' ? searchMode : '(缺)',
+        order: typeof MUSIC_SEARCH_PROVIDER_ORDER !== 'undefined' ? MUSIC_SEARCH_PROVIDER_ORDER.join(',') : '(缺)',
+        map: typeof searchProviderLxSource === 'function'
+          ? ['netease', 'qq', 'kugou', 'kuwo', 'migu', 'qishui'].map(searchProviderLxSource).join(',')
+          : '(缺)',
+        urls: {
+          netease: urlFor('netease'),
+          qq: urlFor('qq'),
+          kugou: urlFor('kugou'),
+          kuwo: urlFor('kuwo'),
+          migu: urlFor('migu'),
+          qishui: urlFor('qishui')
+        }
+      });
+    })()`));
+    check('八个搜索标签都在 DOM 里', searchTabs.missing.length === 0, searchTabs.missing.join(',') || 'ok');
+    check('默认是综合搜索', searchTabs.mode === 'song', 'mode=' + searchTabs.mode);
+    check('综合搜索覆盖五个 LX 音源 + 汽水', searchTabs.order === 'netease,qq,kugou,kuwo,migu,qishui', searchTabs.order);
+    check('平台→LX 音源映射正确', searchTabs.map === 'wy,tx,kg,kw,mg,', searchTabs.map);
+    ['netease=wy', 'qq=tx', 'kugou=kg', 'kuwo=kw', 'migu=mg'].forEach(function (pair) {
+      const parts = pair.split('=');
+      check(
+        parts[0] + ' 搜索走 /api/lx/search?source=' + parts[1],
+        searchTabs.urls[parts[0]].indexOf('/api/lx/search?source=' + parts[1]) === 0,
+        searchTabs.urls[parts[0]]
+      );
+    });
+    check('汽水仍走自己的端点', searchTabs.urls.qishui.indexOf('/api/qishui/search') === 0, searchTabs.urls.qishui);
+
+    const searchTabSwitch = JSON.parse(await evaluate(`(function () {
+      setSearchMode('migu');
+      var btn = document.getElementById('search-mode-migu');
+      var input = document.getElementById('search-input');
+      var out = {
+        active: !!(btn && btn.classList.contains('active')),
+        aria: btn ? btn.getAttribute('aria-selected') : '',
+        placeholder: input ? input.placeholder : ''
+      };
+      setSearchMode('song');
+      var back = document.getElementById('search-mode-song');
+      out.backActive = !!(back && back.classList.contains('active'));
+      return JSON.stringify(out);
+    })()`));
+    check('切到咪咕标签会高亮', searchTabSwitch.active === true && searchTabSwitch.aria === 'true');
+    check('输入框提示跟着换', searchTabSwitch.placeholder.indexOf('咪咕') >= 0, searchTabSwitch.placeholder);
+    check('能切回综合搜索', searchTabSwitch.backActive === true);
+
     const baselineCount = (baseline.status.list || []).length;
     const baselineActiveId = baseline.status.activeId || '';
     console.log(`  基线：已有音源 ${baselineCount} 个，生效源 ${baselineActiveId || '(无)'}`);

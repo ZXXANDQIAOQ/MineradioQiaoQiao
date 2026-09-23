@@ -102,3 +102,37 @@ Two deliberate deviations from upstream are documented in
 platforms (upstream permits them only for `local`), and source persistence uses
 files under the app data directory instead of AsyncStorage.
 
+
+## LX Music online-search SDK (`desktop/lx-search/`)
+
+- Upstream: `lyswhut/lx-music-mobile`
+- Ported files: `src/utils/musicSdk/{wy,tx,kg,kw,mg}/musicSearch.js`
+  plus `src/utils/musicSdk/{api-source.js,utils.js}` and the `wy` / `tx` / `kw`
+  request-crypto helpers
+- Reference revision: `fb8480728d875fa5e0da25eebd3a26bb71723aae` (2026-09-19)
+- License: Apache License 2.0 (compatible with this project's GPL-3.0 distribution)
+- Port date: 2026-09-23
+
+Mineradio ports the five built-in catalogue search implementations so that
+online search returns the same set of platforms LX searches (NetEase, QQ,
+Kugou, Kuwo, Migu) with the same request parameters, signatures, page handling
+and field mapping. The ported modules live verbatim under
+`desktop/lx-search/sources/`; only their ESM imports were rewritten to CommonJS
+`require` calls.
+
+Host-side pieces that upstream resolves through React Native native modules are
+reimplemented in Node:
+
+- `desktop/lx-search/http.js` replaces `src/utils/request.js` (`httpFetch`
+  returning `{ body, meta, statusCode, headers }`) using Node's `fetch`
+- `desktop/lx-search/crypto.js` reimplements `eapi` (AES-128-ECB with MD5
+  digest) and the QQ `zzcSign` (SHA1 slices plus XOR scramble) on top of
+  `node:crypto`
+- `desktop/lx-search/format.js` carries the small formatting helpers
+  (`sizeFormate`, `formatPlayTime`, `decodeName`, `formatSingerName`,
+  `objStr2JSON`)
+
+`desktop/lx-search/index.js` is Mineradio's own adapter: it maps LX track
+objects to this project's track shape, normalises source identifiers, and
+implements offset-based pagination over the page-based sources. The search UI
+(tab bar, result cards, merging, source badges) remains Mineradio's own.

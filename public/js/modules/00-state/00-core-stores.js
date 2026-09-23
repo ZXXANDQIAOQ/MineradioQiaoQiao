@@ -110,7 +110,7 @@ var AUDIO_INPUT_BRIDGE_STORE_KEY = 'mineradio-audio-input-bridge-v1';
 var PROVIDER_VIP_AUDIT_STORE_KEY = 'mineradio-provider-vip-audit-v1';
 var QQ_PLAYBACK_VIP_EVIDENCE_STORE_KEY = 'mineradio-qq-playback-vip-evidence-v1';
 var LOGIN_COOKIE_EXPORT_STORE_KEY = 'mineradio-login-cookie-export-v1';
-var PLAYBACK_QUALITY_DEFAULTS = { netease: 'hires', qq: 'lossless', kugou: 'lossless', qishui: 'standard', spotify: 'standard' };
+var PLAYBACK_QUALITY_DEFAULTS = { netease: 'hires', qq: 'lossless', kugou: 'lossless', kuwo: 'lossless', migu: 'lossless', qishui: 'standard', spotify: 'standard' };
 var PLAYBACK_QUALITY_OPTIONS = {
   netease: [
     { key: 'jymaster', title: '超清母带', sub: 'SVIP / 最高规格', svip: true },
@@ -133,6 +133,18 @@ var PLAYBACK_QUALITY_OPTIONS = {
   ],
   qishui: [
     { key: 'standard', title: '汽水匹配源', sub: 'QS 推荐 / 播放自动换源' }
+  ],
+  kuwo: [
+    { key: 'hires', title: 'Hi-Res / 臻品', sub: '酷我高解析 / 依赖音源脚本' },
+    { key: 'lossless', title: '无损 FLAC', sub: '酷我 SQ / 默认' },
+    { key: 'exhigh', title: '320k MP3', sub: '酷我高品质' },
+    { key: 'standard', title: '128k MP3', sub: '兼容优先' }
+  ],
+  migu: [
+    { key: 'hires', title: 'Hi-Res / 24bit', sub: '咪咕高解析 / 依赖音源脚本' },
+    { key: 'lossless', title: '无损 FLAC', sub: '咪咕 SQ / 默认' },
+    { key: 'exhigh', title: '320k MP3', sub: '咪咕高品质' },
+    { key: 'standard', title: '128k MP3', sub: '兼容优先' }
   ],
   spotify: [
     { key: 'standard', title: 'Spotify 匹配源', sub: 'SP 搜索 / 播放自动换源' }

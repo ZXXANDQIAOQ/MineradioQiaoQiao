@@ -150,6 +150,23 @@ function runLxOnlyModeRegressionCheck() {
   process.stdout.write(result.stdout || '');
 }
 
+function runLxSearchRegressionCheck() {
+  logStep('LX 在线搜索（lx-music-mobile 搜索层移植）回归');
+  for (const name of ['lx-search.test.js', 'lx-search-frontend.test.js']) {
+    const testFile = path.join(appRoot, 'tests', name);
+    const result = spawnSync(process.execPath, ['--test', testFile], {
+      cwd: appRoot,
+      encoding: 'utf8'
+    });
+    if (result.status !== 0) {
+      process.stdout.write(result.stdout || '');
+      process.stderr.write(result.stderr || '');
+      fail(`lx search regression failed: ${rel(testFile)}`);
+    }
+    process.stdout.write(result.stdout || '');
+  }
+}
+
 function runLocalMusicLibraryRegressionCheck() {
   logStep('Persistent local FLAC library regression');
   const testFile = path.join(appRoot, 'tests', 'local-music-library-persistence.test.js');
@@ -5661,6 +5678,7 @@ async function main() {
   runPlaybackSingleRepeatLoopRegressionCheck();
   runUserApiCustomSourceRegressionCheck();
   runLxOnlyModeRegressionCheck();
+  runLxSearchRegressionCheck();
   runLocalMusicLibraryRegressionCheck();
   runBuiltInPlaylistRegressionCheck();
   runWallpaperEngineIdleDisposeRegressionCheck();

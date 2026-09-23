@@ -227,6 +227,8 @@ function platformMeta(provider) {
   if (provider === 'kugou') return { key: 'kugou', short: 'KG', label: '酷狗音乐', app: '酷狗音乐 App', dot: 'kugou' };
   if (provider === 'qishui') return { key: 'qishui', short: 'QS', label: '汽水音乐', app: '汽水音乐 App', dot: 'qishui' };
   if (provider === 'spotify') return { key: 'spotify', short: 'SP', label: 'Spotify', app: 'Spotify', dot: 'spotify' };
+  if (provider === 'kuwo') return { key: 'kuwo', short: 'KW', label: '酷我音乐', app: '酷我音乐 App', dot: 'kuwo' };
+  if (provider === 'migu') return { key: 'migu', short: 'MG', label: '咪咕音乐', app: '咪咕音乐 App', dot: 'migu' };
   return { key: 'netease', short: 'NE', label: '网易云音乐', app: '网易云音乐 App', dot: 'netease' };
 }
 function platformStatus(provider) {

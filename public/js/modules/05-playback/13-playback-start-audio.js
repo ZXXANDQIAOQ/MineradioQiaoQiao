@@ -636,6 +636,10 @@ async function resolveAlbumGaplessPlaybackData(song) {
       '&uri=' + encodeURIComponent(song.spotifyUri || song.uri || '') +
       qualityParam, { timeoutMs: 9000 });
   }
+  if (playbackProvider === 'kuwo' || playbackProvider === 'migu') {
+    // 酷我 / 咪咕没有内置取链，无缝接力的预取拿不到地址，交给正常播放路径（自定义音源）
+    return null;
+  }
   return apiJson('/api/song/url?id=' + encodeURIComponent(song.id || '') + neteasePlaybackMatchQuery(song) + qualityParam, { timeoutMs: 14000 });
 }
 
@@ -1158,6 +1162,8 @@ async function playQueueAt(idx, opts) {
       var playbackProvider = normalizePlaybackProvider(songProviderKey(song));
       var isQQPlayback = playbackProvider === 'qq';
       var isKugouPlayback = playbackProvider === 'kugou';
+      var isKuwoPlayback = playbackProvider === 'kuwo';
+      var isMiguPlayback = playbackProvider === 'migu';
       var isQishuiPlayback = playbackProvider === 'qishui';
       var isSpotifyPlayback = playbackProvider === 'spotify';
       var requestedQuality = normalizePlaybackQualityForProvider(opts.qualityOverride || getProviderPlaybackQuality(playbackProvider), playbackProvider);
@@ -1200,6 +1206,11 @@ async function playQueueAt(idx, opts) {
           '&spotifyId=' + encodeURIComponent(song.spotifyId || '') +
           '&uri=' + encodeURIComponent(song.spotifyUri || song.uri || '') +
           qualityParam, { timeoutMs: 9000 });
+      } else if (isKuwoPlayback || isMiguPlayback) {
+        // 酷我 / 咪咕是 LX 搜索带来的新平台，内置接口没有取链能力：
+        // 这里不落到网易云兜底分支（否则会拿别家的 id 去问网易云），
+        // 取链完全交给自定义音源（优先模式上面已经问过，兜底模式下面会再问一次）。
+        data = null;
       } else {
         data = await apiJson('/api/song/url?id=' + encodeURIComponent(song.id || '') + neteasePlaybackMatchQuery(song) + qualityParam, { timeoutMs: 14000 });
       }

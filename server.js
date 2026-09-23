@@ -91,6 +91,8 @@ const {
 } = require('./kugou-api');
 // 自定义音源（移植自 lx-music 的「自定义源」能力，详见 desktop/user-api/）
 const userApiFacade = require('./desktop/user-api');
+// 在线搜索（移植自 lx-music-mobile 的五个内置音源搜索，详见 desktop/lx-search/）
+const lxSearch = require('./desktop/lx-search');
 const {
   getQishuiStatus,
   handleQishuiStatus,
@@ -4977,6 +4979,39 @@ const server = http.createServer(async (req, res) => {
       const songs = await handleSearch(kw, limit, offset);
       sendJSON(res, { songs, offset, limit, nextOffset: offset + songs.length, hasMore: songs.length >= limit });
     } catch (err) { console.error('[Search]', err); sendJSON(res, { error: err.message, songs: [] }, 500); }
+    return;
+  }
+
+  // 在线搜索：走 desktop/lx-search 移植过来的 LX 音源搜索
+  // （wy 网易云 / tx QQ / kg 酷狗 / kw 酷我 / mg 咪咕）
+  if (pn === '/api/lx/search') {
+    try {
+      const source = url.searchParams.get('source') || '';
+      const kw = url.searchParams.get('keywords') || '';
+      const limit = Math.max(1, Math.min(50, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
+      const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+      const result = await lxSearch.search(source, kw, { limit, offset });
+      sendJSON(res, {
+        provider: result.provider,
+        source: result.source,
+        songs: result.songs,
+        offset,
+        limit,
+        total: result.total,
+        nextOffset: offset + result.songs.length,
+        hasMore: result.hasMore,
+      });
+    } catch (err) {
+      console.error('[LxSearch]', err);
+      sendJSON(res, {
+        provider: 'lx',
+        source: url.searchParams.get('source') || '',
+        error: err.message,
+        songs: [],
+        nextOffset: 0,
+        hasMore: false,
+      }, 500);
+    }
     return;
   }
 

@@ -4,6 +4,8 @@ function playbackProviderLabel(song) {
   var provider = songProviderKey(song);
   if (provider === 'qq') return 'QQ 音乐';
   if (provider === 'kugou') return '酷狗音乐';
+  if (provider === 'kuwo') return '酷我音乐';
+  if (provider === 'migu') return '咪咕音乐';
   if (provider === 'qishui') return '汽水音乐';
   if (provider === 'spotify') return 'Spotify';
   return '网易云';
@@ -457,6 +459,8 @@ function awaitSourceFallbackBudget(promise, recovery) {
 function sourceFallbackProviderTitle(provider) {
   if (provider === 'qq') return 'QQ 音乐';
   if (provider === 'kugou') return '酷狗音乐';
+  if (provider === 'kuwo') return '酷我音乐';
+  if (provider === 'migu') return '咪咕音乐';
   return '网易云';
 }
 function sourceFallbackProviderReady(provider) {
