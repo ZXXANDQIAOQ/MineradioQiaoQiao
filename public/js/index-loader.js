@@ -66,6 +66,7 @@
     'js/modules/05-playback/09-queue-snapshot-autoplay.js',
     'js/modules/05-playback/10-queue-actions.js',
     'js/modules/05-playback/11-provider-fallback.js',
+    'js/modules/05-playback/11a-lx-source-scan.js',
     'js/modules/05-playback/12-playback-switch-core.js',
     'js/modules/05-playback/13-playback-start-audio.js',
     'js/modules/05-playback/14-player-controls.js',

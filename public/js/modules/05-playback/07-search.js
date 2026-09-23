@@ -1006,6 +1006,35 @@ function scoreSongSearchResult(song, q, sourceIndex) {
   if (song && song.playable === false) score -= 6;
   return score;
 }
+/** 同一首歌最多留几个平台的备选版本 */
+var LX_SEARCH_ALTERNATE_LIMIT = 5;
+/**
+ * 搜索结果按「歌名 + 歌手 + 版本」去重后，只留综合得分最高的那一条，
+ * 其余平台的同名版本会被丢掉。丢掉前在这里留一份复印件（去掉
+ * lxAlternates 自己，避免互相嵌套），播放取链失败时可以拿它去换源试播。
+ */
+function searchAlternateRecord(song) {
+  var record = {};
+  Object.keys(song).forEach(function (key) {
+    if (key === 'lxAlternates' || key === '_searchScore') return;
+    record[key] = song[key];
+  });
+  return record;
+}
+function collectSearchAlternate(target, extra) {
+  if (!target || !extra) return;
+  var provider = songProviderKey(extra);
+  if (!provider || provider === songProviderKey(target)) return;
+  // 只有走 LX 音源搜索层的平台才值得留（汽水 / Spotify 换过去也拿不到音源链接）
+  if (typeof searchProviderLxSource === 'function' && !searchProviderLxSource(provider)) return;
+  var list = target.lxAlternates;
+  if (!list || !list.length) { list = []; target.lxAlternates = list; }
+  for (var i = 0; i < list.length; i += 1) {
+    if (songProviderKey(list[i]) === provider) return;
+  }
+  if (list.length >= LX_SEARCH_ALTERNATE_LIMIT) return;
+  list.push(searchAlternateRecord(extra));
+}
 function mergeSongSearchResults(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, spotifySongs, kuwoSongs, miguSongs, limit, q) {
   var out = [];
   var providerSeen = {};
@@ -1019,7 +1048,15 @@ function mergeSongSearchResults(neteaseSongs, qqSongs, kugouSongs, qishuiSongs, 
     var canonicalKey = searchCanonicalSongKey(song);
     if (canonicalKey && canonicalSeen[canonicalKey] != null) {
       var existingIndex = canonicalSeen[canonicalKey];
-      if ((song._searchScore || 0) > (out[existingIndex]._searchScore || 0)) out[existingIndex] = song;
+      var previous = out[existingIndex];
+      if ((song._searchScore || 0) > (previous._searchScore || 0)) {
+        // 主版本被换掉了，但之前收集的备选源要跟着搬过去
+        out[existingIndex] = song;
+        (previous.lxAlternates || []).forEach(function (record) { collectSearchAlternate(song, record); });
+        collectSearchAlternate(song, previous);
+      } else {
+        collectSearchAlternate(previous, song);
+      }
       return;
     }
     if (canonicalKey) canonicalSeen[canonicalKey] = out.length;
@@ -1048,9 +1085,13 @@ function mergeUniqueSearchSongPools(existing, incoming) {
     if (!song || !song.name || out.length >= MUSIC_SEARCH_MAX_RESULTS) return;
     var providerKey = songProviderKey(song) + ':' + (song.mid || song.id || (song.name + '|' + song.artist));
     var canonicalKey = searchCanonicalSongKey(song);
-    if (providerSeen[providerKey] || (canonicalKey && canonicalSeen[canonicalKey])) return;
+    if (providerSeen[providerKey]) return;
+    if (canonicalKey && canonicalSeen[canonicalKey]) {
+      collectSearchAlternate(canonicalSeen[canonicalKey], song);
+      return;
+    }
     providerSeen[providerKey] = true;
-    if (canonicalKey) canonicalSeen[canonicalKey] = true;
+    if (canonicalKey) canonicalSeen[canonicalKey] = song;
     out.push(song);
   }
   (existing || []).forEach(push);
