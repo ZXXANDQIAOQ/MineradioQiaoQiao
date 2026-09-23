@@ -33,6 +33,8 @@ function lxSourceScanSleep(ms) {
 /** 音源模式关掉、或音源没就绪时，换源试播没有意义 */
 function lxSourceScanEnabled() {
   if (typeof userApiPlaybackMode === 'function' && userApiPlaybackMode() === 'off') return false;
+  // 取链入口来自 12-user-api 面板模块；万一没加载上，宁可整条逻辑不启用
+  if (typeof userApiRequestPlaybackUrl !== 'function') return false;
   return typeof userApiStatusReady === 'function' && userApiStatusReady();
 }
 

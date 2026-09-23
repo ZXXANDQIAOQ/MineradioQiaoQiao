@@ -176,6 +176,11 @@ test('递归防护与前置条件：换源过的播放、音源未就绪、本�
   const local = buildFallbackSandbox({ songOverride: { type: 'local', provider: 'local' } });
   assert.equal(await local.scan.fallback(local.__playQueue[0], null, 0, 1, {}, 'lossless'), null);
   assert.equal(local.__plays.length, 0);
+
+  // 取链入口没加载上时（模块被裁掉 / 加载失败），整条逻辑直接不启用
+  const missingEntry = buildFallbackSandbox({ stubs: { userApiRequestPlaybackUrl: undefined } });
+  assert.equal(await missingEntry.scan.fallback(missingEntry.__playQueue[0], null, 0, 1, {}, 'lossless'), null);
+  assert.equal(missingEntry.__plays.length, 0);
 });
 
 test('换音源节奏：每个平台之间等 0.5 秒，命中即停', async () => {
