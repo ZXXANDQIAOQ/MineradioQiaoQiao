@@ -42,6 +42,19 @@ test('release update metadata accepts only a bounded HTTPS external page', () =>
   assert.match(htmlText, /id="update-download-sources"/);
 });
 
+test('update source and packaging target both point at this fork', () => {
+  const update = packageData.mineradio.update;
+  assert.equal(update.provider, 'github');
+  assert.equal(update.owner, 'ZXXANDQIAOQ');
+  assert.equal(update.repo, 'MineradioQiaoQiao');
+  assert.equal(update.disabled, undefined);
+  // electron-builder 的 publish 与软件内更新检查必须指向同一个仓库，
+  // 否则会出现「安装包传到 A、更新提示查 B」的错位
+  const publish = packageData.build.publish[0];
+  assert.equal(publish.owner, update.owner);
+  assert.equal(publish.repo, update.repo);
+});
+
 test('removed local update routes stay disabled and their workers stay absent', () => {
   assert.match(serverText, /pn === '\/api\/update\/download'/);
   assert.match(serverText, /pn === '\/api\/update\/patch'/);
