@@ -7,3 +7,5 @@
 *.ico binary
 *.png binary
 *.min.js text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
