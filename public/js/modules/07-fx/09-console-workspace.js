@@ -290,6 +290,9 @@ var FX_CONSOLE_LAYOUT = [
       { key: 'cache', title: '缓存与存储', hint: '统一缓存目录、占用和各类路径', items: [
         fxConsoleItem('cache-storage-panel', '本地缓存', '缓存路径 缓存目录 占用 歌词 封面 音频 更新', false)
       ] },
+      { key: 'user-api', title: '自定义音源', hint: '导入 LX 音源脚本，接管播放取链与歌词', items: [
+        fxConsoleItem({ selector: '.user-api-panel' }, '自定义音源', 'LX 音源 自定义源 脚本 在线导入 本地导入 沙箱 取链 歌词 音质 换源 SVIP', false)
+      ] },
       { key: 'experimental', title: '实验功能', hint: '尚未开放或需要谨慎使用的能力', items: [
         fxConsoleItem('t-wallpaperMode', '完整桌面模式', '完整 Mineradio 进入桌面层 Ctrl Shift M 切换操作层 本次启动有效', false)
       ] }

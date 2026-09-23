@@ -1168,7 +1168,14 @@ async function playQueueAt(idx, opts) {
       }
       var qualityParam = '&quality=' + encodeURIComponent(requestedQuality);
       var data;
-      if (albumGaplessHandoff) {
+      // 自定义音源（优先模式）：先问音源要链接，拿不到再走内置接口。
+      // 无缝接力用的是预取数据，不允许被替换。
+      var userApiPreferredData = !albumGaplessHandoff && typeof userApiResolvePreferredData === 'function'
+        ? await userApiResolvePreferredData(song, playbackProvider, requestedQuality)
+        : null;
+      if (userApiPreferredData) {
+        data = userApiPreferredData;
+      } else if (albumGaplessHandoff) {
         data = opts.preloadedData;
       } else if (opts.preResolvedPlaybackData && opts.preResolvedPlaybackData.url) {
         data = opts.preResolvedPlaybackData;
@@ -1227,6 +1234,13 @@ async function playQueueAt(idx, opts) {
         if (isQQPlayback && typeof applyQQPlaybackStatusEvidence === 'function') applyQQPlaybackStatusEvidence(data, song);
       }
       var retryPlaybackOpts = Object.assign({}, opts, { resumeAt: opts.resumeAt != null ? opts.resumeAt : restoreResumeAt });
+      if (!data || !data.url) {
+        // 自定义音源（兜底模式）：内置接口没给出可用地址时，改问音源要一个。
+        var userApiFallbackData = typeof userApiResolveFallbackData === 'function'
+          ? await userApiResolveFallbackData(song, playbackProvider, requestedQuality)
+          : null;
+        if (userApiFallbackData) data = userApiFallbackData;
+      }
       if (!data || !data.url) {
         var fallbackResult = await tryAutoPlaybackFallback(song, data, idx, token, retryPlaybackOpts);
         if (fallbackResult !== null) return fallbackResult === true;

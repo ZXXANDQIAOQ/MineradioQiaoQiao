@@ -89,6 +89,8 @@ const {
   extractKugouAuth,
   kugouAudioReferer,
 } = require('./kugou-api');
+// 自定义音源（移植自 lx-music 的「自定义源」能力，详见 desktop/user-api/）
+const userApiFacade = require('./desktop/user-api');
 const {
   getQishuiStatus,
   handleQishuiStatus,
@@ -991,6 +993,50 @@ async function fetchLatestUpdateInfo() {
     clearTimeout(timer);
   }
 }
+// 自定义音源单例：首次用到时才创建，并顺手恢复上次选中的源
+let userApiManagerRef = null;
+function getUserApi() {
+  if (!userApiManagerRef) {
+    userApiManagerRef = userApiFacade.getUserApiManager();
+    Promise.resolve(userApiManagerRef.init()).catch((err) => {
+      console.warn('[UserApi] restore active source failed:', err && err.message);
+    });
+  }
+  return userApiManagerRef;
+}
+
+// ---------- 自定义音源：查询参数解析 ----------
+
+// 从 /api/user-api/* 的查询里取音源平台标识（Mineradio provider / LX source 都认）
+function resolveUserApiLxSource(url) {
+  const provider = url.searchParams.get('provider') || url.searchParams.get('source') || '';
+  return userApiFacade.mapProviderToLxSource(url.searchParams.get('lxSource') || provider);
+}
+
+// 把查询参数还原成 LX 音源脚本认识的 musicInfo（结构对齐 toOldMusicInfo）
+function parseUserApiMusicInfo(url, lxSource) {
+  let qualitys = [];
+  try {
+    qualitys = JSON.parse(url.searchParams.get('qualitys') || '[]');
+  } catch (_) {}
+  if (!Array.isArray(qualitys)) qualitys = [];
+  return userApiFacade.buildMusicInfo({
+    lxSource,
+    songmid: url.searchParams.get('songmid') || url.searchParams.get('id') || '',
+    songId: url.searchParams.get('songId') || '',
+    hash: url.searchParams.get('hash') || '',
+    albumMid: url.searchParams.get('albumMid') || '',
+    strMediaMid: url.searchParams.get('mediaMid') || url.searchParams.get('strMediaMid') || '',
+    name: url.searchParams.get('name') || '',
+    singer: url.searchParams.get('singer') || '',
+    albumName: url.searchParams.get('albumName') || '',
+    albumId: url.searchParams.get('albumId') || '',
+    interval: url.searchParams.get('interval') || '',
+    img: url.searchParams.get('img') || '',
+    qualitys,
+  });
+}
+
 function readRequestBody(req) {
   return new Promise(resolve => {
     let raw = '';
@@ -6690,6 +6736,124 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(err && err.name === 'AbortError' ? 504 : 502, { 'Cache-Control': 'no-store' });
         res.end();
       }
+    }
+    return;
+  }
+
+  // ---------- 自定义音源（移植自 lx-music 的「自定义源」能力） ----------
+  // 面板上的管理操作走 IPC（见 desktop/main.js），这里的 HTTP 端点主要给
+  // 播放链路取链用，同时也方便命令行排查。
+  if (pn === '/api/user-api/status') {
+    try {
+      sendJSON(res, { ok: true, status: getUserApi().getStatus() });
+    } catch (err) {
+      sendJSON(res, { ok: false, error: (err && err.message) || 'USER_API_STATUS_FAILED' }, 500);
+    }
+    return;
+  }
+
+  if (pn === '/api/user-api/logs') {
+    if (req.method === 'GET') {
+      sendJSON(res, { ok: true, logs: getUserApi().getLogs() });
+    } else if (req.method === 'POST') {
+      sendJSON(res, { ok: true, logs: getUserApi().clearLogs() });
+    } else {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+    }
+    return;
+  }
+
+  if (pn === '/api/user-api/import' || pn === '/api/user-api/select' || pn === '/api/user-api/remove'
+    || pn === '/api/user-api/allow-update-alert') {
+    if (req.method !== 'POST') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const body = await readRequestBody(req);
+      const manager = getUserApi();
+      if (pn === '/api/user-api/import') {
+        let info;
+        if (typeof body.script === 'string' && body.script.trim()) {
+          info = await manager.importScript(body.script);
+        } else if (typeof body.url === 'string' && body.url.trim()) {
+          info = await manager.importFromUrl(body.url);
+        } else {
+          throw new Error('缺少 script 或 url 参数');
+        }
+        sendJSON(res, { ok: true, info, status: manager.getStatus() });
+      } else if (pn === '/api/user-api/select') {
+        const result = await manager.setActive(typeof body.id === 'string' ? body.id : '');
+        sendJSON(res, Object.assign({ status: manager.getStatus() }, result));
+      } else if (pn === '/api/user-api/remove') {
+        const result = await manager.remove(String(body.id || ''));
+        sendJSON(res, { ok: true, result, status: manager.getStatus() });
+      } else {
+        const entry = manager.setAllowShowUpdateAlert(String(body.id || ''), body.enabled !== false);
+        sendJSON(res, { ok: true, entry, status: manager.getStatus() });
+      }
+    } catch (err) {
+      sendJSON(res, { ok: false, error: (err && err.message) || 'USER_API_OPERATION_FAILED' }, 400);
+    }
+    return;
+  }
+
+  // 播放链路用：把当前曲目交给选中的自定义音源换一个可播放地址
+  if (pn === '/api/user-api/song/url') {
+    if (req.method !== 'GET') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const manager = getUserApi();
+      const lxSource = resolveUserApiLxSource(url);
+      if (!lxSource) throw new Error('该平台没有对应的音源类型');
+      if (!manager.isReady()) throw new Error('自定义源未就绪');
+      if (!manager.supportsSource(lxSource, 'musicUrl')) throw new Error('当前音源不支持平台 ' + lxSource);
+      const musicInfo = parseUserApiMusicInfo(url, lxSource);
+      const resolved = await userApiFacade.resolveUrlForTrack({
+        lxSource,
+        musicInfo,
+        quality: url.searchParams.get('quality') || '',
+      });
+      sendJSON(res, {
+        ok: true,
+        url: resolved.url,
+        quality: resolved.quality,
+        provider: 'user-api',
+        source: lxSource,
+      });
+    } catch (err) {
+      sendJSON(res, { ok: false, error: (err && err.message) || 'USER_API_URL_FAILED' }, 502);
+    }
+    return;
+  }
+
+  // 播放链路用：歌词（自定义源声明支持 lyric 时，作为内置歌词的补充来源）
+  if (pn === '/api/user-api/song/lyric') {
+    if (req.method !== 'GET') {
+      sendJSON(res, { ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      return;
+    }
+    try {
+      const manager = getUserApi();
+      const lxSource = resolveUserApiLxSource(url);
+      if (!lxSource) throw new Error('该平台没有对应的音源类型');
+      if (!manager.isReady()) throw new Error('自定义源未就绪');
+      if (!manager.supportsSource(lxSource, 'lyric')) throw new Error('当前音源不支持歌词');
+      const musicInfo = parseUserApiMusicInfo(url, lxSource);
+      const data = await manager.getLyric(lxSource, musicInfo);
+      const lyric = (data && (data.lyric || data.lrc || '')) || '';
+      if (!lyric) throw new Error('音源没有返回歌词');
+      sendJSON(res, {
+        ok: true,
+        lyric,
+        translation: (data && (data.tlyric || data.translation || '')) || '',
+        provider: 'user-api',
+        source: lxSource,
+      });
+    } catch (err) {
+      sendJSON(res, { ok: false, error: (err && err.message) || 'USER_API_LYRIC_FAILED' }, 502);
     }
     return;
   }

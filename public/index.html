@@ -1080,6 +1080,37 @@
             <code class="cache-storage-path small" id="cache-storage-userdata-path">—</code>
             <div class="fx-sub cache-storage-note" id="cache-storage-note">歌词缓存立即切换；网络、节奏分析与 WE 静音场景缓存目录在下次重启后切换。</div>
           </div>
+          <div class="fx-section-label">自定义音源</div>
+          <div class="user-api-panel" id="user-api-panel">
+            <div class="user-api-head">
+              <span id="user-api-active-name">当前：未启用</span>
+              <span id="user-api-count">0 / 20</span>
+            </div>
+            <div class="user-api-status" id="user-api-status">正在读取自定义音源状态...</div>
+            <div class="fx-seg user-api-mode-seg" id="user-api-mode-seg" title="自定义音源在播放取链时的使用时机">
+              <button type="button" data-user-api-mode="off">关闭</button>
+              <button type="button" data-user-api-mode="fallback">取链失败时兜底</button>
+              <button type="button" data-user-api-mode="prefer">优先使用</button>
+            </div>
+            <div class="user-api-actions">
+              <button class="fx-mini-btn ghost" type="button" onclick="importUserApiFromUrl()">在线导入</button>
+              <button class="fx-mini-btn ghost" type="button" onclick="importUserApiFromFile()">本地导入</button>
+              <button class="fx-mini-btn ghost" type="button" onclick="refreshUserApiPanel()">刷新</button>
+              <button class="fx-mini-btn ghost" type="button" onclick="openUserApiDataDir()">打开目录</button>
+            </div>
+            <div class="user-api-list" id="user-api-list"></div>
+            <div class="user-api-busy" id="user-api-busy" hidden>正在加载音源脚本...</div>
+            <div class="user-api-notice" id="user-api-notice"></div>
+            <div class="user-api-log-head">
+              <span>脚本日志</span>
+              <span class="user-api-log-act">
+                <button class="fx-mini-btn ghost" type="button" id="user-api-log-toggle" onclick="toggleUserApiLog()">收起</button>
+                <button class="fx-mini-btn ghost" type="button" onclick="clearUserApiLogs()">清空</button>
+              </span>
+            </div>
+            <pre class="user-api-log" id="user-api-log">暂无脚本日志。</pre>
+            <div class="fx-sub user-api-note">自定义源只接管「播放取链 / 歌词」，搜索与歌单仍走内置接口。脚本运行在独立线程的沙箱里，但仍建议只导入可信来源。</div>
+          </div>
           <div class="fx-slider"><label>粒子尺寸</label><input id="fx-point" type="range" min="0.5" max="2.2"
               step="0.01"><output></output></div>
           <div class="fx-slider"><label>流速</label><input id="fx-speed" type="range" min="0.2" max="2.5"

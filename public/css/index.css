@@ -13926,6 +13926,177 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   line-height: 1.45
 }
 
+/* ---------- 自定义音源面板 ---------- */
+
+.user-api-panel {
+  border: 1px solid rgba(255, 255, 255, .075);
+  background: rgba(3, 9, 14, .42);
+  border-radius: 10px;
+  padding: 10px;
+  margin: -1px 0 12px
+}
+
+.user-api-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgba(255, 255, 255, .82);
+  font-size: 11px;
+  font-weight: 700
+}
+
+.user-api-head span:last-child {
+  color: rgba(var(--fc-accent-rgb), .86);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums
+}
+
+.user-api-status {
+  margin: 6px 0 8px;
+  color: rgba(255, 255, 255, .53);
+  font-size: 10px;
+  line-height: 1.5
+}
+
+.user-api-mode-seg {
+  margin: 0 0 8px
+}
+
+.user-api-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px
+}
+
+.user-api-actions .fx-mini-btn,
+.user-api-row-act .fx-mini-btn,
+.user-api-log-act .fx-mini-btn {
+  min-height: 23px;
+  padding: 0 8px;
+  font-size: 9.5px
+}
+
+.user-api-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px
+}
+
+.user-api-empty {
+  color: rgba(255, 255, 255, .38);
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 2px 0
+}
+
+.user-api-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: rgba(255, 255, 255, .022)
+}
+
+.user-api-row.active {
+  border-color: rgba(var(--fc-accent-rgb), .38);
+  background: rgba(var(--fc-accent-rgb), .07)
+}
+
+.user-api-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0
+}
+
+.user-api-row-title {
+  color: rgba(255, 255, 255, .86);
+  font-size: 10.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.user-api-row-meta {
+  color: rgba(var(--fc-accent-rgb), .72);
+  font-size: 9px
+}
+
+.user-api-row-desc {
+  color: rgba(255, 255, 255, .44);
+  font-size: 9px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden
+}
+
+.user-api-row-act {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0
+}
+
+.user-api-busy {
+  margin-bottom: 6px;
+  color: rgba(var(--fc-accent-rgb), .82);
+  font-size: 10px
+}
+
+.user-api-notice {
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, .55);
+  font-size: 10px;
+  line-height: 1.5
+}
+
+.user-api-notice.error {
+  color: #ff8a8a
+}
+
+.user-api-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, .66);
+  font-size: 10px
+}
+
+.user-api-log-act {
+  display: flex;
+  gap: 5px
+}
+
+.user-api-log {
+  max-height: 132px;
+  overflow: auto;
+  margin: 0 0 6px;
+  padding: 6px 7px;
+  border: 1px solid rgba(255, 255, 255, .055);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, .34);
+  color: rgba(214, 235, 242, .62);
+  font-size: 9px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all
+}
+
+.user-api-note {
+  margin-top: 4px;
+  line-height: 1.5
+}
+
 .fx-advanced.open .fx-advanced-body {
   display: block
 }

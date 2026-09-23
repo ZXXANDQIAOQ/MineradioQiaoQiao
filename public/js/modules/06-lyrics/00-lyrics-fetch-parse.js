@@ -346,7 +346,11 @@ async function fetchLyric(songOrId, token, attempt) {
         return;
       }
     }
-    var r = await apiJson(lyricEndpointForSong(song || songOrId));
+    // 自定义音源声明支持歌词时，优先用它（歌词与播放源同源，时间轴更对得上）。
+    var userApiLyricResponse = song && typeof userApiFetchLyricResponse === 'function'
+      ? await userApiFetchLyricResponse(song)
+      : null;
+    var r = userApiLyricResponse || await apiJson(lyricEndpointForSong(song || songOrId));
     var state = applyFetchedLyricResponse(song, token, r);
     if (!state) return;
     if (!state.usableLyric && shouldRetryStartupLyricFetch(song, token, attempt)) scheduleStartupLyricFetchRetry(song, token, attempt);

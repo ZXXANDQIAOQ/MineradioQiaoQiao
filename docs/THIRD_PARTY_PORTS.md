@@ -76,3 +76,29 @@ The web security runtime resources under `qishui-auth-v6/` are retained
 byte-for-byte for protocol compatibility and remain the property of their
 respective rights holders. They are loaded only inside the isolated authentication
 partition for the user's own official login session.
+
+## LX Music custom-source runtime (`lx-preload.js`)
+
+- Upstream: `lyswhut/lx-music-mobile`
+- Ported file: `android/app/src/main/assets/script/user-api-preload.js`
+- License: Apache License 2.0 (compatible with this project's GPL-3.0 distribution)
+- Port date: 2026-09-23
+
+Mineradio ports the script-side preload implementation that defines the
+`globalThis.lx` contract (interface version 2.0.0): `lx.request`, `lx.send`,
+`lx.on`, `lx.utils`, `lx.EVENT_NAMES`, the `inited` / `request` / `updateAlert`
+event handling, request de-duplication and cancellation, response validation for
+`musicUrl` / `lyric` / `pic`, and the crypto/buffer helpers proxied to the host.
+
+Where the mobile build delegates to Android native through
+`__lx_native_call__*`, this project supplies the same host function names from a
+Node `worker_threads` + `vm` sandbox (`desktop/user-api/sandbox-worker.js`), so
+existing LX source scripts run unmodified. The surrounding store, manager,
+manager facade, renderer panel, and playback/lyric integration are Mineradio
+implementations.
+
+Two deliberate deviations from upstream are documented in
+`docs/CUSTOM_SOURCE.md`: `lyric` and `pic` actions are allowed for the music
+platforms (upstream permits them only for `local`), and source persistence uses
+files under the app data directory instead of AsyncStorage.
+

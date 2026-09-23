@@ -66,6 +66,7 @@ Mineradio 2.2 是历史稳定版本，修复了音乐接口的登录与播放问
 - 网易云音乐账号、搜索、歌单、播客等体验接入
 - QQ 音乐搜索、登录态与音源补充接入
 - GitHub Releases 更新检测与下载入口
+- 支持导入 LX 自定义音源脚本，接管播放取链与歌词（[说明](./docs/CUSTOM_SOURCE.md)）
 - 首次启动内置「默认测试」视觉用户存档，软件内默认视觉参数与该存档一致
 
 ## 使用说明
@@ -91,6 +92,12 @@ npm run build:win
 Mineradio 会请求 GitHub Releases latest 检测新版本。远端版本高于本地版本时，应用内更新入口会展示 Release 内容，并通过系统浏览器打开可选网盘线路；即使 Release 附带完整安装包，`2.0.3+` 客户端也不会读取、下载、缓存或应用该附件与补丁。
 
 本地验证更新链路时，可以通过 `MINERADIO_UPDATE_MANIFEST` 指向一个本地 manifest JSON 或 HTTP 地址来模拟线上 Release。
+
+## 自定义音源
+
+控制台「系统」页可以导入 LX 格式的自定义音源脚本（`.js`），用它在内置接口拿不到播放链接时补一个地址，并顺带取歌词。支持在线直链导入与本地文件导入，可在「关闭 / 取链失败时兜底 / 优先使用」三种模式间切换。
+
+脚本运行在独立线程的沙箱里，数据存放在 `%APPDATA%/Mineradio/user-api/`。用法、限制和第三方来源说明见 [docs/CUSTOM_SOURCE.md](./docs/CUSTOM_SOURCE.md)。
 
 ## 第三方音乐平台说明
 

@@ -16,6 +16,26 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   getCacheSettings: () => ipcRenderer.invoke('mineradio-cache-get-settings'),
   chooseCacheDirectory: () => ipcRenderer.invoke('mineradio-cache-choose-directory'),
   setCacheSettings: (payload) => ipcRenderer.invoke('mineradio-cache-set-settings', payload || {}),
+  // 自定义音源（移植自 lx-music 的「自定义源」能力）
+  getUserApiStatus: () => ipcRenderer.invoke('mineradio-user-api-get-status'),
+  getUserApiLogs: () => ipcRenderer.invoke('mineradio-user-api-get-logs'),
+  clearUserApiLogs: () => ipcRenderer.invoke('mineradio-user-api-clear-logs'),
+  importUserApi: (payload) => ipcRenderer.invoke('mineradio-user-api-import', payload || {}),
+  importUserApiFile: () => ipcRenderer.invoke('mineradio-user-api-import-file'),
+  selectUserApi: (id) => ipcRenderer.invoke('mineradio-user-api-select', String(id || '')),
+  removeUserApi: (id) => ipcRenderer.invoke('mineradio-user-api-remove', String(id || '')),
+  setUserApiAllowUpdateAlert: (id, enabled) => ipcRenderer.invoke('mineradio-user-api-set-allow-update-alert', {
+    id: String(id || ''),
+    enabled: enabled !== false,
+  }),
+  getUserApiDataDir: () => ipcRenderer.invoke('mineradio-user-api-get-data-dir'),
+  openUserApiDataDir: () => ipcRenderer.invoke('mineradio-user-api-open-data-dir'),
+  onUserApiStatus: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, status) => callback(status || {});
+    ipcRenderer.on('mineradio-user-api-status', listener);
+    return () => ipcRenderer.removeListener('mineradio-user-api-status', listener);
+  },
   listWallpaperEngineProjects: (payload) => ipcRenderer.invoke('mineradio-wallpaper-engine-list', payload || {}),
   getWallpaperEngineProjectDetails: (id) => ipcRenderer.invoke('mineradio-wallpaper-engine-project-details', String(id || '')),
   openWallpaperEngineProjectDetails: (id, target) => ipcRenderer.invoke('mineradio-wallpaper-engine-open-project-details', {

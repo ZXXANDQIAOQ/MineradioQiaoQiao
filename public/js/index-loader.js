@@ -107,6 +107,7 @@
     'js/modules/10-shell/03-splash.js',
     'js/modules/10-shell/04-desktop-overlay-fullscreen.js',
     'js/modules/10-shell/05-startup-bindings.js',
+    'js/modules/12-user-api/00-user-api-panel.js',
     'js/modules/11-main-loop.js',
   ];
 

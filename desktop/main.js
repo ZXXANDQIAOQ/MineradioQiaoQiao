@@ -25,6 +25,9 @@ const {
 const { extractKugouAuth } = require('../kugou-api');
 const { qishuiCookieHasLogin } = require('../qishui-api');
 const { clearSpotifyToken } = require('../spotify-api');
+// 自定义音源（移植自 lx-music 的「自定义源」能力，详见 desktop/user-api/）
+// 与 server.js 共用同一个 manager 单例：面板里选的源 = 播放时用的源。
+const userApiFacade = require('./user-api');
 
 registerWallpaperEngineScheme(protocol);
 registerLocalMusicScheme(protocol);
@@ -4165,6 +4168,156 @@ ipcMain.handle('mineradio-cache-set-settings', async (_event, payload = {}) => {
   }
 });
 
+/* ------------------------------------------------------------------ */
+/* 自定义音源（移植自 lx-music 的「自定义源」能力）                      */
+/*                                                                     */
+/* 面板上的管理操作走 IPC，播放取链走 server.js 的 /api/user-api/song/url */
+/* 两边拿的是同一个 UserApiManager 单例，所以「面板里选的源」就是「播放   */
+/* 时用的源」。                                                        */
+/* ------------------------------------------------------------------ */
+
+function broadcastUserApiStatus(status) {
+  try {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win || win.isDestroyed()) continue;
+      win.webContents.send('mineradio-user-api-status', status || {});
+    }
+  } catch (_) {}
+}
+
+ipcMain.handle('mineradio-user-api-get-status', async () => {
+  try {
+    const manager = userApiFacade.getUserApiManager();
+    await manager.init();
+    return { ok: true, status: manager.getStatus() };
+  } catch (error) {
+    return { ok: false, error: error.message || 'USER_API_STATUS_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-get-logs', async () => {
+  try {
+    const manager = userApiFacade.getUserApiManager();
+    return { ok: true, logs: manager.getLogs() };
+  } catch (error) {
+    return { ok: false, logs: [], error: error.message || 'USER_API_LOGS_READ_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-clear-logs', async () => {
+  try {
+    const manager = userApiFacade.getUserApiManager();
+    return { ok: true, logs: manager.clearLogs() };
+  } catch (error) {
+    return { ok: false, logs: [], error: error.message || 'USER_API_LOGS_CLEAR_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-import', async (_event, payload = {}) => {
+  try {
+    const manager = userApiFacade.getUserApiManager();
+    await manager.init();
+    let info;
+    if (typeof payload.script === 'string' && payload.script.trim()) {
+      info = await manager.importScript(payload.script);
+    } else if (typeof payload.url === 'string' && payload.url.trim()) {
+      info = await manager.importFromUrl(payload.url);
+    } else {
+      return { ok: false, error: '缺少 script 或 url 参数' };
+    }
+    const status = manager.getStatus();
+    broadcastUserApiStatus(status);
+    return { ok: true, info, status };
+  } catch (error) {
+    return { ok: false, error: error.message || 'USER_API_IMPORT_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-import-file', async () => {
+  try {
+    const options = {
+      title: '选择 LX 自定义音源脚本（.js）',
+      buttonLabel: '导入此音源',
+      properties: ['openFile'],
+      filters: [{ name: '自定义音源脚本', extensions: ['js'] }],
+    };
+    const result = mainWindow && !mainWindow.isDestroyed()
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+    if (result.canceled || !result.filePaths || !result.filePaths[0]) {
+      return { ok: true, canceled: true };
+    }
+    const manager = userApiFacade.getUserApiManager();
+    await manager.init();
+    const info = await manager.importFromFile(path.resolve(result.filePaths[0]));
+    const status = manager.getStatus();
+    broadcastUserApiStatus(status);
+    return { ok: true, canceled: false, info, status };
+  } catch (error) {
+    return { ok: false, canceled: false, error: error.message || 'USER_API_IMPORT_FILE_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-select', async (_event, id) => {
+  try {
+    const manager = userApiFacade.getUserApiManager();
+    await manager.init();
+    const result = await manager.setActive(typeof id === 'string' ? id : '');
+    const status = manager.getStatus();
+    broadcastUserApiStatus(status);
+    return Object.assign({ status }, result);
+  } catch (error) {
+    return { ok: false, error: error.message || 'USER_API_SELECT_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-remove', async (_event, id) => {
+  try {
+    const manager = userApiFacade.getUserApiManager();
+    await manager.init();
+    const result = await manager.remove(String(id || ''));
+    const status = manager.getStatus();
+    broadcastUserApiStatus(status);
+    return { ok: true, result, status };
+  } catch (error) {
+    return { ok: false, error: error.message || 'USER_API_REMOVE_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-set-allow-update-alert', async (_event, payload = {}) => {
+  try {
+    const manager = userApiFacade.getUserApiManager();
+    await manager.init();
+    const entry = manager.setAllowShowUpdateAlert(String(payload.id || ''), payload.enabled !== false);
+    const status = manager.getStatus();
+    broadcastUserApiStatus(status);
+    return { ok: true, entry, status };
+  } catch (error) {
+    return { ok: false, error: error.message || 'USER_API_UPDATE_ALERT_SETTING_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-get-data-dir', async () => {
+  try {
+    return { ok: true, dataDir: userApiFacade.getUserApiManager().getDataDir() };
+  } catch (error) {
+    return { ok: false, dataDir: '', error: error.message || 'USER_API_DATA_DIR_FAILED' };
+  }
+});
+
+ipcMain.handle('mineradio-user-api-open-data-dir', async () => {
+  try {
+    const dataDir = userApiFacade.getUserApiManager().getDataDir();
+    if (!dataDir) return { ok: false, error: 'USER_API_DATA_DIR_EMPTY' };
+    fs.mkdirSync(dataDir, { recursive: true });
+    const error = await shell.openPath(dataDir);
+    if (error) return { ok: false, error };
+    return { ok: true, dataDir };
+  } catch (error) {
+    return { ok: false, error: error.message || 'USER_API_OPEN_DATA_DIR_FAILED' };
+  }
+});
+
 ipcMain.handle('mineradio-wallpaper-engine-list', async (event, payload = {}) => {
   try {
     if (!isTrustedWallpaperEngineIpc(event)) return { ok: false, projects: [], count: 0, error: 'WALLPAPER_ENGINE_UNTRUSTED_CALLER' };
@@ -5984,6 +6137,8 @@ if (!gotSingleInstanceLock) {
     unregisterMineradioGlobalHotkeys();
     closeDesktopLyricsWindow();
     if (localServer && localServer.close) localServer.close();
+    // 自定义音源跑在 worker 线程里，退出前必须显式销毁，否则进程不干净
+    try { userApiFacade.destroyUserApiManager(); } catch (_) {}
     if (tray) {
       try { tray.destroy(); } catch (e) {}
       tray = null;
