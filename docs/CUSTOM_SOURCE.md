@@ -62,13 +62,21 @@
 
 ## 自检
 
-不启动桌面版也能验证沙箱（会临时改数据目录，跑完即清理）：
+四条命令，从快到全：
 
 ```bash
-node desktop/user-api/selftest.js
+node tests/user-api-custom-source.test.js        # 单元回归（不联网、不起 Electron）
+node desktop/user-api/selftest.js                # 沙箱自检（本机起假接口，跑通全链路）
+node scripts/check-user-api-panel-live.js        # 面板 live 检查（真起 Electron，走完导入→启用→删除）
+quick-check.bat                                  # 仓库总自检（已接入第一条）
+quick-check.bat full                             # 再加 Electron 运行时冒烟
 ```
 
-脚本覆盖：导入 / 元信息解析 / 初始化 / 取链 / 歌词 / 切源 / 删除 / 坏脚本拒绝 / 初始化抛错上报 / 死循环强杀。
+- **单元回归**（`tests/user-api-custom-source.test.js`）覆盖：元信息解析与长度上限、导入即生效、取链与音质挑选、未声明动作被拒、`lyric` 契约校验、初始化抛错上报、删除后回退、在线导入协议校验、数量上限、provider→LX 字段映射。
+- **沙箱自检**覆盖：导入 / 初始化 / 取链 / 歌词 / 切源 / 删除 / 坏脚本拒绝 / 死循环强杀。
+- **面板 live 检查**覆盖：面板 DOM 与按钮、IPC 通路、导入→启用→状态渲染、模式切换持久化、歌词钩子短路、删除后回到基线（检查前已有的音源不会被删，生效源会还原）。
+
+脚本契约提醒：`lyric` 动作必须返回**对象**（`{ lyric, tlyric?, rlyric?, lxlyric? }`），返回纯字符串会被 preload 判为失败 —— 这一条在单元回归里有两个方向的断言。
 
 ## 安全
 

@@ -120,6 +120,21 @@ function runPlaybackSingleRepeatLoopRegressionCheck() {
   process.stdout.write(result.stdout || '');
 }
 
+function runUserApiCustomSourceRegressionCheck() {
+  logStep('Custom music source (LX script port) regression');
+  const testFile = path.join(appRoot, 'tests', 'user-api-custom-source.test.js');
+  const result = spawnSync(process.execPath, [testFile], {
+    cwd: appRoot,
+    encoding: 'utf8'
+  });
+  if (result.status !== 0) {
+    process.stdout.write(result.stdout || '');
+    process.stderr.write(result.stderr || '');
+    fail(`custom music source regression failed: ${rel(testFile)}`);
+  }
+  process.stdout.write(result.stdout || '');
+}
+
 function runLocalMusicLibraryRegressionCheck() {
   logStep('Persistent local FLAC library regression');
   const testFile = path.join(appRoot, 'tests', 'local-music-library-persistence.test.js');
@@ -5629,6 +5644,7 @@ async function main() {
   runPlaybackAudioGraphRegressionCheck();
   runPlaybackSourceFallbackTransactionCheck();
   runPlaybackSingleRepeatLoopRegressionCheck();
+  runUserApiCustomSourceRegressionCheck();
   runLocalMusicLibraryRegressionCheck();
   runBuiltInPlaylistRegressionCheck();
   runWallpaperEngineIdleDisposeRegressionCheck();
