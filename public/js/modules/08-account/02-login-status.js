@@ -259,6 +259,8 @@ function refreshQQVipStatusNow(reason) {
   return refreshQQLoginStatus({ forceVip: true, reason: reason || 'manual' });
 }
 function startQQLoginStatusAutoRefresh() {
+  // LX 音源模式没有平台登录，45s 一次的登录态轮询纯属打扰，直接不启动
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) return;
   if (qqLoginAutoRefreshTimer) clearInterval(qqLoginAutoRefreshTimer);
   qqLoginAutoRefreshTimer = setInterval(function () {
     refreshQQLoginStatus({ reason: 'auto' }).catch(function (e) { console.warn('QQ login auto refresh failed:', e); });
@@ -376,6 +378,7 @@ async function refreshKugouLoginStatus() {
   }
 }
 function startKugouLoginStatusAutoRefresh() {
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) return;
   if (kugouLoginAutoRefreshTimer) clearInterval(kugouLoginAutoRefreshTimer);
   kugouLoginAutoRefreshTimer = setInterval(function () {
     refreshKugouLoginStatus().catch(function (e) { console.warn('Kugou login auto refresh failed:', e); });
@@ -446,6 +449,7 @@ async function refreshQishuiLoginStatus() {
   }
 }
 function startQishuiLoginStatusAutoRefresh() {
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) return;
   if (qishuiLoginAutoRefreshTimer) clearInterval(qishuiLoginAutoRefreshTimer);
   qishuiLoginAutoRefreshTimer = setInterval(function () {
     refreshQishuiLoginStatus().catch(function (e) { console.warn('Qishui login auto refresh failed:', e); });
@@ -515,6 +519,7 @@ async function refreshSpotifyLoginStatus() {
   }
 }
 function startSpotifyLoginStatusAutoRefresh() {
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) return;
   if (spotifyLoginAutoRefreshTimer) clearInterval(spotifyLoginAutoRefreshTimer);
   spotifyLoginAutoRefreshTimer = setInterval(function () {
     refreshSpotifyLoginStatus().catch(function (e) { console.warn('Spotify login auto refresh failed:', e); });

@@ -107,6 +107,8 @@ function runLoginGuideParticles(done) {
 }
 function maybeRunStartupLoginGuide(source) {
   if (startupLoginGuideShown || loginGuideAnimating) return;
+  // LX 音源模式不再需要登录，也就不再有启动引导（连粒子动画都不用跑）
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) return;
   if (typeof loginEasterEggAllowsStartupGuide === 'function' && !loginEasterEggAllowsStartupGuide()) return;
   if (visualGuideActive) return;
   if (document.body.classList.contains('splash-active')) return;

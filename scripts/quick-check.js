@@ -135,6 +135,21 @@ function runUserApiCustomSourceRegressionCheck() {
   process.stdout.write(result.stdout || '');
 }
 
+function runLxOnlyModeRegressionCheck() {
+  logStep('LX 音源模式（平台登录入口下线）回归');
+  const testFile = path.join(appRoot, 'tests', 'lx-only-mode.test.js');
+  const result = spawnSync(process.execPath, [testFile], {
+    cwd: appRoot,
+    encoding: 'utf8'
+  });
+  if (result.status !== 0) {
+    process.stdout.write(result.stdout || '');
+    process.stderr.write(result.stderr || '');
+    fail(`lx-only mode regression failed: ${rel(testFile)}`);
+  }
+  process.stdout.write(result.stdout || '');
+}
+
 function runLocalMusicLibraryRegressionCheck() {
   logStep('Persistent local FLAC library regression');
   const testFile = path.join(appRoot, 'tests', 'local-music-library-persistence.test.js');
@@ -5645,6 +5660,7 @@ async function main() {
   runPlaybackSourceFallbackTransactionCheck();
   runPlaybackSingleRepeatLoopRegressionCheck();
   runUserApiCustomSourceRegressionCheck();
+  runLxOnlyModeRegressionCheck();
   runLocalMusicLibraryRegressionCheck();
   runBuiltInPlaylistRegressionCheck();
   runWallpaperEngineIdleDisposeRegressionCheck();

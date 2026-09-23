@@ -1264,12 +1264,23 @@ async function playQueueAt(idx, opts) {
         if (data.loggedIn && data.vipLevel === 'svip') txt = '此歌曲需要单曲、专辑购买或更高权限';
         else if (data.loggedIn && data.vipLevel === 'vip') txt = '此歌曲需要 SVIP 或购买 · 当前仅播放试听片段';
         else if (data.loggedIn) txt = '此歌曲需 VIP · 当前仅播放试听片段';
+        else if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) txt = '内置取链只给到试听片段 · 换个能取到完整音源的脚本试试';
         else txt = '当前未登录 · 仅播放试听片段';
         document.getElementById('trial-text').textContent = txt;
         var trialLoginBtn = document.getElementById('trial-login-btn');
         if (trialLoginBtn) {
-          trialLoginBtn.style.display = data.loggedIn ? 'none' : '';
-          trialLoginBtn.onclick = function () { openProviderLogin(playbackProvider); };
+          if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) {
+            // LX 音源模式没有登录可去，这个入口改成打开自定义音源面板
+            trialLoginBtn.textContent = '去导入音源';
+            trialLoginBtn.style.display = '';
+            trialLoginBtn.onclick = function () {
+              lxOnlyModeHint('在「自定义音源」里导入脚本后即可取到完整音源。');
+              if (typeof toggleFxPanel === 'function') toggleFxPanel(true);
+            };
+          } else {
+            trialLoginBtn.style.display = data.loggedIn ? 'none' : '';
+            trialLoginBtn.onclick = function () { openProviderLogin(playbackProvider); };
+          }
         }
         document.getElementById('trial-banner').classList.add('show');
       }

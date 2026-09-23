@@ -3811,6 +3811,14 @@ body.desktop-shell.desktop-fullscreen #upload-actions {
   color: #fff
 }
 
+/* ---------- LX 音源模式：平台账号入口整体下线 ----------
+   用 visibility 保留布局盒，顶部胶囊定位 / 玻璃折射贴图仍能拿到 rect */
+html.lx-only-mode #user-btn,
+html.lx-only-mode .user-capsule-hide-btn {
+  visibility: hidden;
+  pointer-events: none
+}
+
 body.user-capsule-auto-hide #top-right {
   right: -96px;
   opacity: 0;

@@ -1267,6 +1267,11 @@ function ensureLoggedInForAction(provider) {
   provider = provider || 'netease';
   if (isSongAccountLoggedIn(provider)) return true;
   var adapter = songAccountAdapter(provider);
+  // LX 音源模式：平台账号入口已下线，账号收藏/同步这类操作直接说清楚不可用
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) {
+    showToast((adapter && adapter.label || '平台') + '账号同步已下线（LX 音源模式不登录平台）');
+    return false;
+  }
   showToast('登录' + (adapter && adapter.label || '对应平台') + '后可同步账号收藏');
   showLoginModal({ provider: provider });
   return false;

@@ -1,4 +1,14 @@
 function fallbackHomeTiles() {
+  // LX 音源模式：原来「登录同步歌单」的那格换成音源入口，登录入口不再出现在首页
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) {
+    return [
+      { kind: 'source', title: '导入 LX 音源', sub: '播放内容全部由音源提供' },
+      { kind: 'search', title: '搜索一首歌', sub: '原唱优先', query: '' },
+      { kind: 'local', title: '导入本地音乐', sub: '本地文件也能可视化' },
+      { kind: 'podcastSearch', title: '搜索播客', sub: '长内容 / 电台' },
+      { kind: 'guide', title: '看看视觉舞台', sub: '粒子 / 歌词 / 封面' },
+    ];
+  }
   return [
     { kind: 'login', title: '登录同步歌单', sub: '网易云 / QQ / 酷狗 / 汽水' },
     { kind: 'search', title: '搜索一首歌', sub: '原唱优先', query: '' },
@@ -23,6 +33,7 @@ function homeToneForItem(item, index) {
   if (item.kind === 'local') return 'local';
   if (item.kind === 'guide') return 'guide';
   if (item.kind === 'login') return 'library';
+  if (item.kind === 'source') return 'library';
   if (item.kind === 'search') return 'search';
   return ['daily', 'playlist', 'local', 'guide', 'search'][index % 5];
 }

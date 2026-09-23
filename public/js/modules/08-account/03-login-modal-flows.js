@@ -573,6 +573,12 @@ async function confirmCookieExportPrompt() {
 
 async function showLoginModal(opts) {
   opts = opts || {};
+  // LX 音源模式：内容全由音源脚本提供，平台登录入口整体下线。
+  // 这里是登录弹窗唯一的打开漏斗（顶部按钮 / 播放链路 / 启动引导都走它）。
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) {
+    lxOnlyModeHint('可以到「控制台 → 系统 → 自定义音源」导入音源脚本。');
+    return;
+  }
   loginProvider = opts.provider ? normalizeLoginProviderKey(opts.provider) : 'netease';
   var modal = document.getElementById('login-modal');
   if (typeof setLoginEasterEggMode === 'function' &&

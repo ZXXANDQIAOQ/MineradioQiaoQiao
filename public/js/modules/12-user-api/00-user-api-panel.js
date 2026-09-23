@@ -22,7 +22,9 @@ var MINERADIO_USER_API_LOG_TIMER = null;
 function userApiPlaybackMode() {
   var value = '';
   try { value = localStorage.getItem(MINERADIO_USER_API_MODE_KEY) || ''; } catch (e) { value = ''; }
-  return value === 'off' || value === 'prefer' ? value : 'fallback';
+  // 默认「优先使用」：LX 音源是播放内容的主要来源，内置取链只在音源拿不到时兜底
+  if (value === 'off' || value === 'fallback' || value === 'prefer') return value;
+  return 'prefer';
 }
 
 function userApiSetPlaybackMode(mode) {

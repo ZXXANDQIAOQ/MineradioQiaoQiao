@@ -75,6 +75,11 @@ function onUserBtnClick() {
     topAccountPillClickSuppressed = false;
     return;
   }
+  // LX 音源模式下这个按钮本身已隐藏，这里再兜一层，避免键盘/脚本触发
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) {
+    lxOnlyModeHint();
+    return;
+  }
   showLoginModal({ provider: hasAnyPlatformLogin() ? firstLoggedProvider() : loginProvider, source: 'top-account' });
 }
 var ACCOUNT_PROVIDER_KEYS = ['netease', 'qq', 'kugou', 'qishui'];

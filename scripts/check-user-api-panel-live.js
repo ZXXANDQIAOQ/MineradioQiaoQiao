@@ -133,6 +133,18 @@ const PANEL_PROBE = `(function () {
     ].join(','),
     logToggle: !!document.getElementById('user-api-log-toggle'),
     mode: typeof userApiPlaybackMode === 'function' ? userApiPlaybackMode() : '(缺)',
+    defaultMode: (function () {
+      // 默认值必须在「没有存过」的前提下测，否则会被上一次运行的 localStorage 带走
+      var key = 'mineradio.userApiMode';
+      var prev = null;
+      try { prev = localStorage.getItem(key); localStorage.removeItem(key); } catch (e) { prev = null; }
+      var value = typeof userApiPlaybackMode === 'function' ? userApiPlaybackMode() : '(缺)';
+      try {
+        if (prev === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, prev);
+      } catch (e) {}
+      return value;
+    })(),
     statusText: (document.getElementById('user-api-status') || { textContent: '(缺)' }).textContent.slice(0, 80)
   });
 })()`;
@@ -142,9 +154,20 @@ const SNAPSHOT = `(function () {
   var activeName = document.getElementById('user-api-active-name');
   var status = document.getElementById('user-api-status');
   var busy = document.getElementById('user-api-busy');
+  // 不能假设列表是空的：先记基线再按名字找行（本机可能已经有用户导入的音源）
+  var titles = [];
+  var activeTitles = [];
+  for (var i = 0; i < rows.length; i++) {
+    var titleNode = rows[i].querySelector('.user-api-row-title');
+    var title = titleNode ? titleNode.textContent : '';
+    titles.push(title);
+    if (rows[i].classList.contains('active')) activeTitles.push(title);
+  }
   return JSON.stringify({
     rowCount: rows.length,
-    firstRowTitle: rows.length ? rows[0].querySelector('.user-api-row-title').textContent : '',
+    titles: titles,
+    activeTitles: activeTitles,
+    firstRowTitle: titles.length ? titles[0] : '',
     firstRowActive: rows.length ? rows[0].classList.contains('active') : false,
     activeName: activeName ? activeName.textContent : '',
     status: status ? status.textContent : '',
@@ -155,11 +178,21 @@ const SNAPSHOT = `(function () {
 
 async function waitForPageTarget(timeoutMs) {
   const deadline = Date.now() + timeoutMs;
+  // 主窗口是 http://localhost:PORT/ ；启动 splash、桌面歌词、壁纸窗口都排除掉。
+  // 之前只判断 type === 'page'，会抢到 startup.html，而它随主窗口打开就关闭，
+  // 导致后面所有 evaluate 静默返回 null。
+  const isMainAppPage = (target) => {
+    const url = String(target.url || '');
+    if (!target.webSocketDebuggerUrl) return false;
+    if (/^(about:|devtools:)/i.test(url)) return false;
+    if (/startup\.html|desktop-lyrics\.html|wallpaper/i.test(url)) return false;
+    return /^https?:\/\//i.test(url) || /index\.html/i.test(url);
+  };
   while (Date.now() < deadline) {
     for (const endpoint of ['/json/list', '/json']) {
       const list = await getJson(`http://127.0.0.1:${debugPort}${endpoint}`);
       if (Array.isArray(list)) {
-        const page = list.find(target => target.type === 'page' && target.webSocketDebuggerUrl);
+        const page = list.find((target) => target.type === 'page' && isMainAppPage(target));
         if (page) return page;
       }
     }
@@ -183,7 +216,10 @@ async function main() {
   delete env.ELECTRON_RUN_AS_NODE;
 
   console.log(`启动 Mineradio（调试端口 ${debugPort}）…`);
-  const child = spawn(electronBinary, ['.', `--remote-debugging-port=${debugPort}`], {
+  // --in-process-gpu：无头/CI/部分虚拟机上独立 GPU 进程会连不上 d3d11 而自杀
+  // （日志里是「GPU process isn't usable. Goodbye.」），主窗口根本起不来。
+  // 这里只是把 GPU 挪回主进程，被检查的 DOM / IPC / 面板逻辑都不受影响。
+  const child = spawn(electronBinary, ['.', `--remote-debugging-port=${debugPort}`, '--in-process-gpu'], {
     cwd: appRoot,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -215,7 +251,8 @@ async function main() {
     check('在线导入按钮就位', probe.urlImportButton === true);
     check('操作函数已导出到全局', probe.actionFns === 'function,function,function,function', probe.actionFns);
     check('日志开关存在', probe.logToggle === true);
-    check('播放模式默认兜底', probe.mode === 'fallback', 'mode=' + probe.mode);
+    check('播放模式默认优先音源', probe.defaultMode === 'prefer', 'default=' + probe.defaultMode);
+    check('当前模式取值合法', ['off', 'fallback', 'prefer'].indexOf(probe.mode) >= 0, 'mode=' + probe.mode);
     check('状态行已渲染', probe.statusText.length > 0, probe.statusText);
 
     console.log('\n=== 1b. 在线导入入口（不联网） ===');
@@ -243,6 +280,46 @@ async function main() {
     );
     const baseline = JSON.parse(baselineRaw);
     check('IPC 状态可用', baseline.ok === true, baseline.error || '');
+
+    console.log('\n=== 1c. LX 音源模式：平台登录入口下线 ===');
+    const lxOnlyRaw = await evaluate(`(function () {
+      var btn = document.getElementById('user-btn');
+      var cs = btn ? getComputedStyle(btn) : null;
+      var modal = document.getElementById('login-modal');
+      return JSON.stringify({
+        flag: typeof lxOnlyModeEnabled === 'function' ? lxOnlyModeEnabled() : null,
+        htmlClass: document.documentElement.classList.contains('lx-only-mode'),
+        userBtnVisibility: cs ? cs.visibility : '(缺)',
+        userBtnPointer: cs ? cs.pointerEvents : '(缺)',
+        userBtnAria: btn ? (btn.getAttribute('aria-hidden') || '') : '',
+        modalShown: !!(modal && modal.classList.contains('show')),
+        trialBtnText: (document.getElementById('trial-login-btn') || { textContent: '' }).textContent
+      });
+    })()`);
+    const lxOnly = JSON.parse(lxOnlyRaw);
+    check('LX 音源模式已开启', lxOnly.flag === true, 'flag=' + lxOnly.flag);
+    check('根节点已标记 lx-only-mode', lxOnly.htmlClass === true);
+    check('账号入口已隐藏', lxOnly.userBtnVisibility === 'hidden' && lxOnly.userBtnPointer === 'none',
+      lxOnly.userBtnVisibility + '/' + lxOnly.userBtnPointer);
+    check('账号入口对读屏也隐藏', lxOnly.userBtnAria === 'true', lxOnly.userBtnAria);
+    check('初始没有登录弹窗', lxOnly.modalShown === false);
+
+    const gateRaw = await evaluate(`(async function () {
+      var modal = document.getElementById('login-modal');
+      var out = {};
+      await showLoginModal({ provider: 'netease', source: 'probe' });
+      out.afterShow = !!(modal && modal.classList.contains('show'));
+      onUserBtnClick();
+      out.afterUserBtn = !!(modal && modal.classList.contains('show'));
+      openProviderLogin('qq');
+      out.afterProviderLogin = !!(modal && modal.classList.contains('show'));
+      return JSON.stringify(out);
+    })()`);
+    const gate = JSON.parse(gateRaw);
+    check('showLoginModal 被拦住', gate.afterShow === false);
+    check('点账号按钮不会弹登录', gate.afterUserBtn === false);
+    check('openProviderLogin 被拦住', gate.afterProviderLogin === false);
+
     const baselineCount = (baseline.status.list || []).length;
     const baselineActiveId = baseline.status.activeId || '';
     console.log(`  基线：已有音源 ${baselineCount} 个，生效源 ${baselineActiveId || '(无)'}`);
@@ -266,7 +343,7 @@ async function main() {
     await sleep(2500);
     snapshot = JSON.parse(await evaluate(SNAPSHOT));
     check('列表新增一行', snapshot.rowCount === baselineCount + 1, 'rows=' + snapshot.rowCount);
-    check('行标题是音源名', snapshot.firstRowTitle === imported.name, snapshot.firstRowTitle);
+    check('列表里能找到刚导入的音源', snapshot.titles.indexOf(imported.name) >= 0, snapshot.titles.join(' / '));
 
     console.log('\n=== 3. 启用该音源 ===');
     const selectRaw = await evaluate(
@@ -284,7 +361,7 @@ async function main() {
     await evaluate('refreshUserApiPanel()');
     await sleep(1500);
     snapshot = JSON.parse(await evaluate(SNAPSHOT));
-    check('该行标记为已启用', snapshot.firstRowActive === true);
+    check('该行标记为已启用', snapshot.activeTitles.indexOf(imported.name) >= 0, snapshot.activeTitles.join(' / '));
     check('顶部显示当前音源', snapshot.activeName.indexOf(imported.name) >= 0, snapshot.activeName);
     check('状态行显示已就绪', snapshot.status.indexOf('已就绪') >= 0, snapshot.status);
     check('加载中提示已隐藏', snapshot.busyHidden === true);

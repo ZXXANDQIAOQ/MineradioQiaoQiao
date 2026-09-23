@@ -752,6 +752,15 @@ function handlePlaybackUnavailable(song, data) {
   var category = notice.category;
   showToast(notice.toast || notice.title || playbackRestrictionMessage(song, data));
   showSourceFallbackNotice(notice.title, notice.body);
+  // LX 音源模式：登录入口已下线，需要权限的歌改成引导去音源，而不是弹登录
+  if (typeof lxOnlyModeEnabled === 'function' && lxOnlyModeEnabled()) {
+    if (category === 'login_required') {
+      setTimeout(function () {
+        lxOnlyModeHint('这首歌换一个音源脚本可能就能播。');
+      }, 520);
+    }
+    return;
+  }
   if (category === 'login_required') {
     setTimeout(function () {
       var modal = document.getElementById('login-modal');
