@@ -18,6 +18,27 @@ const { UserApiRuntime } = require('./runtime');
 
 const MAX_LOGS = 300;
 
+/**
+ * 把常见的「网页版」代码链接纠正成直链。
+ * 用户从浏览器地址栏复制过来的多半是 blob 页面，直接拿去 fetch 只会拿到 HTML。
+ */
+function normalizeSourceUrl(url) {
+  let target = String(url || '').trim();
+  if (!target) return target;
+  const github = /^https?:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i.exec(target);
+  if (github) return `https://raw.githubusercontent.com/${github[1]}/${github[2]}/${github[3]}`;
+  const gitee = /^https?:\/\/(?:www\.)?gitee\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i.exec(target);
+  if (gitee) return `https://gitee.com/${gitee[1]}/${gitee[2]}/raw/${gitee[3]}`;
+  return target;
+}
+
+/** 下载回来的内容是不是一个网页（而不是脚本） */
+function looksLikeHtml(text) {
+  const head = String(text || '').slice(0, 600).trim().toLowerCase();
+  if (!head) return false;
+  return head.startsWith('<!doctype html') || head.startsWith('<html') || /<html[\s>]/.test(head);
+}
+
 let singleton = null;
 
 class UserApiManager {
@@ -112,7 +133,7 @@ class UserApiManager {
   }
 
   async importFromUrl(url) {
-    const target = String(url || '').trim();
+    const target = normalizeSourceUrl(url);
     if (!/^https?:\/\//i.test(target)) throw new Error('请输入 http/https 开头的链接');
     const response = await this.fetchImpl(target, {
       headers: {
@@ -126,6 +147,9 @@ class UserApiManager {
       throw new Error('下载失败：HTTP ' + (response ? response.status : '??'));
     }
     const text = await response.text();
+    if (looksLikeHtml(text)) {
+      throw new Error('这个链接返回的是网页而不是脚本，请改用脚本文件的直链（raw / jsDelivr）');
+    }
     return this.importScript(text);
   }
 
@@ -353,4 +377,6 @@ module.exports = {
   UserApiManager,
   getUserApiManager,
   resetUserApiManager,
+  normalizeSourceUrl,
+  looksLikeHtml,
 };

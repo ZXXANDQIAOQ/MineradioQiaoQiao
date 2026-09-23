@@ -118,6 +118,13 @@ const PANEL_PROBE = `(function () {
     panelExists: !!document.getElementById('user-api-panel'),
     modeButtons: document.querySelectorAll('#user-api-mode-seg [data-user-api-mode]').length,
     actionButtons: document.querySelectorAll('#user-api-panel .user-api-actions .fx-mini-btn').length,
+    urlInput: !!document.getElementById('user-api-url'),
+    urlInputType: (document.getElementById('user-api-url') || {}).type || '',
+    urlImportBound: (function () {
+      var el = document.getElementById('user-api-url');
+      return !!(el && el.__mineradioBound);
+    })(),
+    urlImportButton: !!document.querySelector('#user-api-url-row .fx-mini-btn'),
     actionFns: [
       typeof importUserApiFromUrl,
       typeof importUserApiFromFile,
@@ -202,11 +209,34 @@ async function main() {
     const probe = JSON.parse(await evaluate(PANEL_PROBE));
     check('面板容器存在', probe.panelExists === true);
     check('模式三段按钮齐全', probe.modeButtons === 3, 'buttons=' + probe.modeButtons);
-    check('四个操作按钮齐全', probe.actionButtons === 4, 'buttons=' + probe.actionButtons);
+    check('三个操作按钮齐全', probe.actionButtons === 3, 'buttons=' + probe.actionButtons);
+    check('在线导入输入框存在且为文本框', probe.urlInput === true && probe.urlInputType === 'text', probe.urlInputType);
+    check('在线导入输入框已绑定回车事件', probe.urlImportBound === true);
+    check('在线导入按钮就位', probe.urlImportButton === true);
     check('操作函数已导出到全局', probe.actionFns === 'function,function,function,function', probe.actionFns);
     check('日志开关存在', probe.logToggle === true);
     check('播放模式默认兜底', probe.mode === 'fallback', 'mode=' + probe.mode);
     check('状态行已渲染', probe.statusText.length > 0, probe.statusText);
+
+    console.log('\n=== 1b. 在线导入入口（不联网） ===');
+    const urlGuardRaw = await evaluate(`(function () {
+      var out = {};
+      var input = document.getElementById('user-api-url');
+      var notice = document.getElementById('user-api-notice');
+      input.value = '';
+      try { importUserApiFromUrl(); } catch (e) { out.emptyThrew = String(e && e.message || e); }
+      out.emptyNotice = (notice || {}).textContent || '';
+      input.value = 'ftp://example.com/a.js';
+      try { importUserApiFromUrl(); } catch (e) { out.badThrew = String(e && e.message || e); }
+      out.badNotice = (notice || {}).textContent || '';
+      input.value = '';
+      return JSON.stringify(out);
+    })()`);
+    const urlGuard = JSON.parse(urlGuardRaw);
+    check('空链接点击不抛异常', !urlGuard.emptyThrew, urlGuard.emptyThrew || '');
+    check('空链接给出提示', /请先粘贴/.test(urlGuard.emptyNotice), urlGuard.emptyNotice);
+    check('非 http 链接不抛异常', !urlGuard.badThrew, urlGuard.badThrew || '');
+    check('非 http 链接给出提示', /http/.test(urlGuard.badNotice), urlGuard.badNotice);
 
     const baselineRaw = await evaluate(
       `(async function () { var r = await window.desktopWindow.getUserApiStatus(); return JSON.stringify(r); })()`

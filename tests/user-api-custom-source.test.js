@@ -10,6 +10,8 @@
  *   · 初始化抛错的源会被标记为失败
  *   · 移除生效中的源会回退到列表里的下一个
  *   · 在线导入只接受 http/https
+ *   · 在线导入把 GitHub / Gitee 网页链接纠正成直链、识别网页响应
+ *   · 音源面板在线导入不依赖 Electron 不支持的 window.prompt
  *   · 音源数量上限
  *   · Mineradio provider 与 LX musicInfo 的字段映射
  *
@@ -20,12 +22,13 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
 const { UserApiStore, MAX_SOURCES } = require('../desktop/user-api/store');
-const { UserApiManager } = require('../desktop/user-api/manager');
+const { UserApiManager, normalizeSourceUrl, looksLikeHtml } = require('../desktop/user-api/manager');
 const userApiFacade = require('../desktop/user-api');
 
 const DEFAULT_SOURCES = {
@@ -211,6 +214,116 @@ test('在线导入只接受 http/https 链接', async () => {
     await assert.rejects(() => manager.importFromUrl('file:///tmp/a.js'), /http/);
     await assert.rejects(() => manager.importFromUrl(''), /http/);
   });
+});
+
+test('在线导入会把代码托管页链接纠正成直链', () => {
+  assert.equal(
+    normalizeSourceUrl('https://github.com/foo/bar/blob/main/sources/test.js'),
+    'https://raw.githubusercontent.com/foo/bar/main/sources/test.js'
+  );
+  assert.equal(
+    normalizeSourceUrl('https://gitee.com/foo/bar/blob/master/a.js'),
+    'https://gitee.com/foo/bar/raw/master/a.js'
+  );
+  assert.equal(
+    normalizeSourceUrl('  https://raw.githubusercontent.com/a/b/main/c.js  '),
+    'https://raw.githubusercontent.com/a/b/main/c.js'
+  );
+  assert.equal(normalizeSourceUrl('https://example.com/a.js?t=1'), 'https://example.com/a.js?t=1');
+  assert.equal(normalizeSourceUrl(''), '');
+});
+
+test('在线导入按纠正后的直链发起请求，脚本能正常入库', async () => {
+  let requested = '';
+  const manager = new UserApiManager({
+    dataDir: makeDataDir(),
+    fetch: async (url) => {
+      requested = url;
+      return { ok: true, status: 200, text: async () => buildScript({ name: '在线音源' }) };
+    },
+  });
+  try {
+    const info = await manager.importFromUrl('https://github.com/a/b/blob/main/c.js');
+    assert.equal(requested, 'https://raw.githubusercontent.com/a/b/main/c.js');
+    assert.equal(info.name, '在线音源');
+    assert.equal(manager.isReady(), true);
+  } finally {
+    manager.destroy();
+  }
+});
+
+test('在线导入遇到网页响应、HTTP 错误时给出可读提示', async () => {
+  const htmlManager = new UserApiManager({
+    dataDir: makeDataDir(),
+    fetch: async () => ({ ok: true, status: 200, text: async () => '<!DOCTYPE html>\n<html lang="zh">' }),
+  });
+  try {
+    await assert.rejects(() => htmlManager.importFromUrl('https://example.com/a.js'), /网页而不是脚本/);
+    assert.equal(htmlManager.getStatus().list.length, 0);
+  } finally {
+    htmlManager.destroy();
+  }
+
+  const notFoundManager = new UserApiManager({
+    dataDir: makeDataDir(),
+    fetch: async () => ({ ok: false, status: 404, text: async () => '' }),
+  });
+  try {
+    await assert.rejects(() => notFoundManager.importFromUrl('https://example.com/404.js'), /HTTP 404/);
+  } finally {
+    notFoundManager.destroy();
+  }
+
+  assert.equal(looksLikeHtml('<html>'), true);
+  assert.equal(looksLikeHtml('  <!doctype HTML>'), true);
+  assert.equal(looksLikeHtml('/*! @name 音源 */'), false);
+  assert.equal(looksLikeHtml(''), false);
+});
+
+test('在线导入走真实 HTTP 下载（本机回环服务）', async () => {
+  const script = buildScript({ name: '回环音源' });
+  const server = http.createServer((req, res) => {
+    if (req.url === '/source.js') {
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8' });
+      res.end(script);
+      return;
+    }
+    if (req.url === '/page.js') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html><body>404</body></html>');
+      return;
+    }
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('not found');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  const manager = new UserApiManager({ dataDir: makeDataDir() });
+  try {
+    const info = await manager.importFromUrl(`http://127.0.0.1:${port}/source.js`);
+    assert.equal(info.name, '回环音源');
+    assert.equal(manager.isReady(), true);
+    assert.equal(manager.getStatus().list.length, 1);
+    await assert.rejects(() => manager.importFromUrl(`http://127.0.0.1:${port}/missing.js`), /HTTP 404/);
+    await assert.rejects(() => manager.importFromUrl(`http://127.0.0.1:${port}/page.js`), /网页而不是脚本/);
+    assert.equal(manager.getStatus().list.length, 1);
+  } finally {
+    manager.destroy();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('音源面板的在线导入走输入框，不依赖 Electron 不支持的 window.prompt', () => {
+  const panelPath = path.join(__dirname, '..', 'public', 'js', 'modules', '12-user-api', '00-user-api-panel.js');
+  const panel = fs.readFileSync(panelPath, 'utf8');
+  assert.doesNotMatch(panel, /window\.prompt\s*\(/);
+  assert.match(panel, /getElementById\('user-api-url'\)/);
+  assert.match(panel, /importUserApi\(\{ url: url \}\)/);
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  assert.match(html, /id="user-api-url"[^>]*>/);
+  assert.match(html, /id="user-api-url-import"[^>]*onclick="importUserApiFromUrl\(\)"/);
 });
 
 test('同时存在的音源数量上限为 MAX_SOURCES', () => {

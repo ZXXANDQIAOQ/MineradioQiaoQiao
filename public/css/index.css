@@ -13963,6 +13963,48 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode {
   margin: 0 0 8px
 }
 
+.user-api-url-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px
+}
+
+.user-api-url-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 25px;
+  padding: 0 9px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .04);
+  color: rgba(255, 255, 255, .84);
+  font-size: 10px;
+  line-height: 25px;
+  outline: 0;
+  transition: border-color .16s ease, background .16s ease
+}
+
+.user-api-url-input::placeholder {
+  color: rgba(255, 255, 255, .3)
+}
+
+.user-api-url-input:focus {
+  border-color: rgba(var(--fc-accent-rgb), .55);
+  background: rgba(255, 255, 255, .06)
+}
+
+.user-api-url-input:disabled {
+  opacity: .5
+}
+
+.user-api-url-row .fx-mini-btn {
+  min-height: 25px;
+  padding: 0 10px;
+  font-size: 9.5px;
+  flex: 0 0 auto
+}
+
 .user-api-actions {
   display: flex;
   flex-wrap: wrap;

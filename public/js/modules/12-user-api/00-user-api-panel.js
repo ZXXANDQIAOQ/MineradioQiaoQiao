@@ -244,6 +244,10 @@ function renderUserApiPanel() {
   renderUserApiList();
   var busy = document.getElementById('user-api-busy');
   if (busy) busy.hidden = !MINERADIO_USER_API_BUSY;
+  var urlInput = userApiUrlInput();
+  if (urlInput) urlInput.disabled = !!MINERADIO_USER_API_BUSY;
+  var urlButton = document.getElementById('user-api-url-import');
+  if (urlButton) urlButton.disabled = !!MINERADIO_USER_API_BUSY;
 }
 
 function renderUserApiLogs(logs) {
@@ -279,29 +283,51 @@ function userApiFlash(message, tone) {
   }, 6000);
 }
 
+function userApiUrlInput() {
+  return document.getElementById('user-api-url');
+}
+
 function importUserApiFromUrl() {
   if (!window.desktopWindow || typeof window.desktopWindow.importUserApi !== 'function') {
     userApiFlash('仅桌面版支持自定义音源', 'error');
     return;
   }
-  var input = window.prompt('粘贴音源脚本的直链（http/https，.js）：', '');
-  if (input == null) return;
-  var url = String(input).trim();
-  if (!/^https?:\/\//i.test(url)) {
-    userApiFlash('链接必须以 http:// 或 https:// 开头', 'error');
+  // 注意：Electron 的渲染进程里 window.prompt / window.alert 之外的 prompt 会直接抛
+  // 「prompt() is not supported.」，所以这里必须用面板里的输入框拿链接。
+  var input = userApiUrlInput();
+  if (!input) {
+    userApiFlash('找不到在线导入输入框，请刷新页面后重试', 'error');
     return;
   }
+  var url = String(input.value || '').trim();
+  if (!url) {
+    userApiFlash('请先粘贴音源脚本的直链', 'error');
+    input.focus();
+    return;
+  }
+  if (!/^https?:\/\//i.test(url)) {
+    userApiFlash('链接必须以 http:// 或 https:// 开头', 'error');
+    input.focus();
+    return;
+  }
+  if (MINERADIO_USER_API_BUSY) return;
+  userApiImportByUrl(url);
+}
+
+function userApiImportByUrl(url) {
   MINERADIO_USER_API_BUSY = true;
   renderUserApiPanel();
   userApiFlash('正在下载并加载音源...');
-  window.desktopWindow.importUserApi({ url: url }).then(function (result) {
+  return window.desktopWindow.importUserApi({ url: url }).then(function (result) {
     MINERADIO_USER_API_BUSY = false;
     if (!result || result.ok !== true) {
-      applyUserApiStatus({ ok: false });
+      refreshUserApiPanel();
       userApiFlash('导入失败：' + ((result && result.error) || '未知错误'), 'error');
       return;
     }
-    applyUserApiStatus({ status: result.status });
+    var input = userApiUrlInput();
+    if (input) input.value = '';
+    if (result.status) applyUserApiStatus({ status: result.status });
     refreshUserApiLogs();
     var name = result.info && result.info.name ? result.info.name : '音源';
     userApiFlash('已导入「' + name + '」，正在初始化...');
@@ -552,6 +578,16 @@ function bindUserApiPanelEvents() {
       var target = event.target && event.target.closest ? event.target.closest('[data-user-api-mode]') : null;
       if (!target) return;
       userApiSetPlaybackMode(target.getAttribute('data-user-api-mode'));
+    });
+  }
+  var urlInput = userApiUrlInput();
+  if (urlInput && !urlInput.__mineradioBound) {
+    urlInput.__mineradioBound = true;
+    // 粘贴完直接回车就走导入，省掉一次点按钮
+    urlInput.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.keyCode !== 13) return;
+      event.preventDefault();
+      importUserApiFromUrl();
     });
   }
 }

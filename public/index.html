@@ -1092,8 +1092,12 @@
               <button type="button" data-user-api-mode="fallback">取链失败时兜底</button>
               <button type="button" data-user-api-mode="prefer">优先使用</button>
             </div>
+            <div class="user-api-url-row" id="user-api-url-row">
+              <input id="user-api-url" class="user-api-url-input" type="text" spellcheck="false" autocomplete="off"
+                placeholder="粘贴音源脚本直链（http/https，GitHub 请用 raw 直链）">
+              <button class="fx-mini-btn ghost" type="button" id="user-api-url-import" onclick="importUserApiFromUrl()">在线导入</button>
+            </div>
             <div class="user-api-actions">
-              <button class="fx-mini-btn ghost" type="button" onclick="importUserApiFromUrl()">在线导入</button>
               <button class="fx-mini-btn ghost" type="button" onclick="importUserApiFromFile()">本地导入</button>
               <button class="fx-mini-btn ghost" type="button" onclick="refreshUserApiPanel()">刷新</button>
               <button class="fx-mini-btn ghost" type="button" onclick="openUserApiDataDir()">打开目录</button>
