@@ -763,7 +763,7 @@ function handlePlaybackUnavailable(song, data) {
     setTimeout(function () {
       lxOnlyModeHint(category === 'login_required'
         ? '这首歌换一个音源脚本可能就能播。'
-        : '这首歌没有从音源取到可播放地址：可以在「自定义音源」里换一个脚本，或换一首同名的其它平台版本。');
+        : '这首歌在几个平台都没能从音源取到可播放地址：可以在「自定义音源」里换一个脚本，或换一首同名版本。');
     }, 520);
     return;
   }

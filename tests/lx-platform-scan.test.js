@@ -1,15 +1,15 @@
 'use strict';
 
 /*
- * LX 音源逐一试播（换源兜底）回归
+ * 多平台逐一试播（同一首歌自动换播放平台）回归
  *
- * 用户要的行为：一首歌当前音源放不了，就每隔 0.5 秒换下一个音源，
- * 第一个能取到播放地址的版本就用它播。
+ * 用户要的行为：一首歌当前平台放不了，就每隔 0.5 秒换下一个平台，
+ * 第一个能取到播放地址的版本就用它播（音源脚本始终是同一个）。
  *
  * 这里盖三件事：
- *   1. 节奏 —— 每换一个音源前等 0.5 秒，命中即停，不白试后面的
+ *   1. 节奏 —— 每换一个平台前等 0.5 秒，命中即停，不白试后面的
  *   2. 候选 —— 优先用搜索时留下的同曲其它平台版本，没有再补搜
- *   3. 接线 —— 播放链路两处失败点都接上了，且不会递归换源
+ *   3. 接线 —— 播放链路两处失败点都接上了，且不会递归换平台
  */
 
 const test = require('node:test');
@@ -21,7 +21,7 @@ const vm = require('node:vm');
 const appRoot = path.resolve(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(appRoot, rel), 'utf8');
 
-const scanSource = read('public/js/modules/05-playback/11a-lx-source-scan.js');
+const scanSource = read('public/js/modules/05-playback/11a-lx-platform-scan.js');
 const searchSource = read('public/js/modules/05-playback/07-search.js');
 const playbackSource = read('public/js/modules/05-playback/13-playback-start-audio.js');
 const loaderSource = read('public/js/index-loader.js');
@@ -88,12 +88,12 @@ function buildScanSandbox(overrides) {
   };
   vm.runInNewContext(`${scanSource}
 this.scan = {
-  findPlayable: lxSourceScanFindPlayable,
-  providerQueue: lxSourceScanProviderQueue,
-  providerUsable: lxSourceScanProviderUsable,
-  fallback: tryLxSourceScanFallback,
-  intervalMs: LX_SOURCE_SCAN_INTERVAL_MS,
-  maxProviders: LX_SOURCE_SCAN_MAX_PROVIDERS
+  findPlayable: lxPlatformScanFindPlayable,
+  providerQueue: lxPlatformScanProviderQueue,
+  providerUsable: lxPlatformScanProviderUsable,
+  fallback: tryLxPlatformScanFallback,
+  intervalMs: LX_PLATFORM_SCAN_INTERVAL_MS,
+  maxProviders: LX_PLATFORM_SCAN_MAX_PROVIDERS
 };`, sandbox);
   Object.assign(sandbox, {
     normalizePlaybackProvider: (name) => String(name || '').toLowerCase(),
@@ -110,7 +110,7 @@ function alternatesProviderCalls(sandbox) {
   return sandbox.__urlCalls || [];
 }
 
-/** 换源入口用的整套播放链路桩 */
+/** 换平台入口用的整套播放链路桩 */
 function buildFallbackSandbox(options) {
   const playQueue = [Object.assign({ name: '晴天', artist: '周杰伦', provider: 'netease', id: 'N1' }, options.songOverride || {})];
   const noticed = [];
@@ -120,8 +120,8 @@ function buildFallbackSandbox(options) {
     trackSwitchToken: 1,
     userApiStatusReady: () => true,
     userApiPlaybackMode: () => 'prefer',
-    lxSourceScanSleep: async () => {},
-    lxSourceScanSearchProvider: async (song, provider) => (provider === 'qq' ? { name: '晴天', artist: '周杰伦', provider: 'qq', mid: 'QQ1' } : null),
+    lxPlatformScanSleep: async () => {},
+    lxPlatformScanSearchProvider: async (song, provider) => (provider === 'qq' ? { name: '晴天', artist: '周杰伦', provider: 'qq', mid: 'QQ1' } : null),
     userApiRequestPlaybackUrl: async () => ({ url: 'https://example.test/qq.mp3', level: '' }),
     hydrateCustomCover: (song) => song,
     restoreSourceFallbackQueueItem: (idx, originalSong) => { playQueue[idx] = originalSong; return true; },
@@ -129,7 +129,7 @@ function buildFallbackSandbox(options) {
     safeRenderQueuePanel: () => {},
     safeShelfRebuild: () => {},
     playQueueAt: async (idx, opts) => {
-      plays.push({ idx, url: opts.preResolvedPlaybackData && opts.preResolvedPlaybackData.url, scanDepth: opts.lxSourceScanDepth, fallbackDepth: opts.fallbackDepth });
+      plays.push({ idx, url: opts.preResolvedPlaybackData && opts.preResolvedPlaybackData.url, scanDepth: opts.lxPlatformScanDepth, fallbackDepth: opts.fallbackDepth });
       return options.startPlayed !== false;
     },
   }, options.stubs || {}));
@@ -146,12 +146,12 @@ test('命中可播版本时：换成那个平台的曲目，并把播放数据�
 
   assert.equal(started, true);
   assert.equal(sandbox.__playQueue[0].provider, 'qq', '队列条目要换成能播的那个平台版本');
-  assert.equal(sandbox.__playQueue[0].lxSourceScanFrom, 'netease');
+  assert.equal(sandbox.__playQueue[0].lxPlatformScanFrom, 'netease');
   assert.equal(sandbox.__plays.length, 1);
   assert.equal(sandbox.__plays[0].url, 'https://example.test/qq.mp3', '已经取到的地址要直接复用，别再取一次');
   assert.equal(sandbox.__plays[0].scanDepth, 1, '递归防护：换源后的那次播放要带标记');
-  assert.ok(sandbox.__noticed.some((n) => n.title === '正在换音源试试'));
-  assert.ok(sandbox.__noticed.some((n) => n.title === '已自动换音源'));
+  assert.ok(sandbox.__noticed.some((n) => n.title === '当前平台放不了，正在换平台试试'));
+  assert.ok(sandbox.__noticed.some((n) => n.title === '已自动切换平台'));
 });
 
 test('换过去的版本也没播起来：队列条目还原，交回既有兜底', async () => {
@@ -161,12 +161,12 @@ test('换过去的版本也没播起来：队列条目还原，交回既有兜�
 
   assert.equal(result, null, '自己没能接管就返回 null，让后面的登录平台兜底继续');
   assert.equal(sandbox.__playQueue[0].provider, 'netease', '失败后队列条目要还原');
-  assert.equal(sandbox.__playQueue[0].lxSourceScanFrom, undefined);
+  assert.equal(sandbox.__playQueue[0].lxPlatformScanFrom, undefined);
 });
 
-test('递归防护与前置条件：换源过的播放、音源未就绪、本地曲目都不进入换源', async () => {
+test('递归防护与前置条件：换过平台的播放、音源未就绪、本地曲目都不进入换平台', async () => {
   const recursive = buildFallbackSandbox({});
-  assert.equal(await recursive.scan.fallback(recursive.__playQueue[0], null, 0, 1, { lxSourceScanDepth: 1 }, 'lossless'), null);
+  assert.equal(await recursive.scan.fallback(recursive.__playQueue[0], null, 0, 1, { lxPlatformScanDepth: 1 }, 'lossless'), null);
   assert.equal(recursive.__plays.length, 0, '递归时不该再发起播放');
 
   const notReady = buildFallbackSandbox({ stubs: { userApiStatusReady: () => false } });
@@ -183,12 +183,12 @@ test('递归防护与前置条件：换源过的播放、音源未就绪、本�
   assert.equal(missingEntry.__plays.length, 0);
 });
 
-test('换音源节奏：每个平台之间等 0.5 秒，命中即停', async () => {
+test('换平台节奏：每个平台之间等 0.5 秒，命中即停', async () => {
   const sleeps = [];
   const urlCalls = [];
   const sandbox = buildScanSandbox({
-    lxSourceScanSleep: async (ms) => { sleeps.push(ms); },
-    lxSourceScanSearchProvider: async () => null,
+    lxPlatformScanSleep: async (ms) => { sleeps.push(ms); },
+    lxPlatformScanSearchProvider: async () => null,
     userApiRequestPlaybackUrl: async (song, provider) => {
       urlCalls.push(provider);
       return provider === 'kugou' ? { url: 'https://example.test/kugou.mp3', level: '' } : null;
@@ -221,8 +221,8 @@ test('备选里没有该平台时，用歌名 + 歌手补搜一次', async () =>
   const searched = [];
   const urlCalls = [];
   const sandbox = buildScanSandbox({
-    lxSourceScanSleep: async () => {},
-    lxSourceScanSearchProvider: async (song, provider) => {
+    lxPlatformScanSleep: async () => {},
+    lxPlatformScanSearchProvider: async (song, provider) => {
       searched.push(`${provider}:${song.name} ${song.artist}`);
       return provider === 'qq' ? { name: '晴天', artist: '周杰伦', provider: 'qq', mid: 'QQ1' } : null;
     },
@@ -244,8 +244,8 @@ test('全部平台都取不到时返回 null，且每个平台都等过一次 0.
   const sleeps = [];
   const urlCalls = [];
   const sandbox = buildScanSandbox({
-    lxSourceScanSleep: async (ms) => { sleeps.push(ms); },
-    lxSourceScanSearchProvider: async (song, provider) => ({ name: '晴天', artist: '周杰伦', provider }),
+    lxPlatformScanSleep: async (ms) => { sleeps.push(ms); },
+    lxPlatformScanSearchProvider: async (song, provider) => ({ name: '晴天', artist: '周杰伦', provider }),
     userApiRequestPlaybackUrl: async (song, provider) => { urlCalls.push(provider); return null; },
   });
 
@@ -259,10 +259,10 @@ test('全部平台都取不到时返回 null，且每个平台都等过一次 0.
   assert.ok(sleeps.every((ms) => ms === 500));
 });
 
-test('切歌（token 变化）后立刻放弃换源', async () => {
+test('切歌（token 变化）后立刻放弃换平台', async () => {
   const sandbox = buildScanSandbox({
-    lxSourceScanSleep: async () => { sandbox.trackSwitchToken = 99; },
-    lxSourceScanSearchProvider: async (song, provider) => ({ name: '晴天', artist: '周杰伦', provider }),
+    lxPlatformScanSleep: async () => { sandbox.trackSwitchToken = 99; },
+    lxPlatformScanSearchProvider: async (song, provider) => ({ name: '晴天', artist: '周杰伦', provider }),
     userApiRequestPlaybackUrl: async () => ({ url: 'https://example.test/x.mp3' }),
   });
   const song = { name: '晴天', artist: '周杰伦', provider: 'netease', id: 'N1' };
@@ -276,27 +276,27 @@ test('平台队列只留能搜又能被音源取链的 LX 五家，并去掉当�
   const queueOf = (box, provider) => box.scan.providerQueue(provider).join(',');
   assert.equal(queueOf(sandbox, 'netease'), 'qq,kugou,kuwo,migu');
   assert.equal(queueOf(sandbox, 'migu'), 'netease,qq,kugou,kuwo');
-  assert.ok(sandbox.scan.providerQueue('netease').indexOf('qishui') < 0, '汽水没有音源平台，不入队');
+  assert.ok(sandbox.scan.providerQueue('netease').indexOf('qishui') < 0, '汽水没有 LX 音源平台，不入队');
 
-  // 音源脚本不支持某平台时，该平台要被剔除
+  // 音源脚本不支持某平台时（比如只声明了 kg），那个平台要被剔除
   const limited = buildScanSandbox({ userApiSupports: (lxSource) => lxSource !== 'tx' });
   assert.equal(queueOf(limited, 'netease'), 'kugou,kuwo,migu');
 
   assert.equal(sandbox.scan.maxProviders, 5);
 });
 
-test('播放链路两处失败点都接了换源试播，并且不会递归换源', () => {
-  assert.match(playbackSource, /if \(!data \|\| !data\.url\) \{[\s\S]{0,420}tryLxSourceScanFallback\(song, data, idx, token, retryPlaybackOpts, requestedQuality\)/);
+test('播放链路两处失败点都接了换平台试播，并且不会递归换平台', () => {
+  assert.match(playbackSource, /if \(!data \|\| !data\.url\) \{[\s\S]{0,460}tryLxPlatformScanFallback\(song, data, idx, token, retryPlaybackOpts, requestedQuality\)/);
   assert.match(
     playbackSource,
-    /var lxMediaScan = typeof tryLxSourceScanFallback === 'function'[\s\S]{0,300}reason: 'media_start_failed' \}\),[\s\S]{0,200}requestedQuality\s*\)/
+    /var lxMediaPlatformScan = typeof tryLxPlatformScanFallback === 'function'[\s\S]{0,300}reason: 'media_start_failed' \}\),[\s\S]{0,200}requestedQuality\s*\)/
   );
-  assert.match(playbackSource, /var lxScanFallback = typeof tryLxSourceScanFallback === 'function'[\s\S]{0,240}if \(lxScanFallback !== null\) return lxScanFallback === true;[\s\S]{0,240}await tryAutoPlaybackFallback/);
-  // 换源试播要排在「已登录平台兜底」前面：音源不需要登录，先试它更划算
-  assert.ok(playbackSource.indexOf('var lxScanFallback') < playbackSource.indexOf('var fallbackResult = await tryAutoPlaybackFallback'));
-  assert.ok(playbackSource.indexOf('var lxMediaScan') < playbackSource.indexOf('var mediaFailureFallback = await tryAutoPlaybackFallback'));
-  assert.match(scanSource, /if \(opts\.lxSourceScanDepth > 0\) return null;/);
-  assert.match(scanSource, /lxSourceScanDepth: 1,/);
+  assert.match(playbackSource, /var lxPlatformFallback = typeof tryLxPlatformScanFallback === 'function'[\s\S]{0,260}if \(lxPlatformFallback !== null\) return lxPlatformFallback === true;[\s\S]{0,260}await tryAutoPlaybackFallback/);
+  // 换平台试播要排在「已登录平台兜底」前面：音源不需要登录，先试它更划算
+  assert.ok(playbackSource.indexOf('var lxPlatformFallback') < playbackSource.indexOf('var fallbackResult = await tryAutoPlaybackFallback'));
+  assert.ok(playbackSource.indexOf('var lxMediaPlatformScan') < playbackSource.indexOf('var mediaFailureFallback = await tryAutoPlaybackFallback'));
+  assert.match(scanSource, /if \(opts\.lxPlatformScanDepth > 0\) return null;/);
+  assert.match(scanSource, /lxPlatformScanDepth: 1,/);
 });
 
 test('搜索结果合并时把同曲的其它平台版本留成备选', () => {
@@ -314,7 +314,7 @@ test('搜索结果合并时把同曲的其它平台版本留成备选', () => {
   sandbox.collect(target, { name: '晴天', artist: '周杰伦', provider: 'kugou', hash: 'H1', _searchScore: 40, lxAlternates: [{ provider: 'x' }] });
   // 同平台不重复收
   sandbox.collect(target, { name: '晴天', artist: '周杰伦', provider: 'kugou', hash: 'H2' });
-  // 汽水换过去也拿不到音源链接，不收
+  // 汽水换过去也拿不到同一个音源脚本的链接，不收
   sandbox.collect(target, { name: '晴天', artist: '周杰伦', provider: 'qishui', id: 'Q1' });
   // 自己这个平台不收
   sandbox.collect(target, { name: '晴天', artist: '周杰伦', provider: 'netease', id: 'N9' });
@@ -331,7 +331,7 @@ test('搜索结果合并时把同曲的其它平台版本留成备选', () => {
 
 test('11a 模块已注册进加载清单，且排在 11-provider-fallback 之后', () => {
   const fallbackAt = loaderSource.indexOf("'js/modules/05-playback/11-provider-fallback.js'");
-  const scanAt = loaderSource.indexOf("'js/modules/05-playback/11a-lx-source-scan.js'");
+  const scanAt = loaderSource.indexOf("'js/modules/05-playback/11a-lx-platform-scan.js'");
   assert.ok(fallbackAt > 0 && scanAt > 0, 'index-loader.js 必须同时包含两个模块');
   assert.ok(scanAt > fallbackAt, '11a 要在 11 之后加载，才能用到它的兜底函数');
 });

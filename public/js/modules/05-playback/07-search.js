@@ -1011,7 +1011,7 @@ var LX_SEARCH_ALTERNATE_LIMIT = 5;
 /**
  * 搜索结果按「歌名 + 歌手 + 版本」去重后，只留综合得分最高的那一条，
  * 其余平台的同名版本会被丢掉。丢掉前在这里留一份复印件（去掉
- * lxAlternates 自己，避免互相嵌套），播放取链失败时可以拿它去换源试播。
+ * lxAlternates 自己，避免互相嵌套），播放取链失败时可以拿它去换平台试播。
  */
 function searchAlternateRecord(song) {
   var record = {};

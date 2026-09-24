@@ -63,11 +63,15 @@ LX 音源按「页码」翻页，各家每页返回的条数并不总等于请�
 - **汽水**在 LX 音源模式下不参与综合搜索（它的播放能力来自已经下线的登录入口），
   标签栏里的 QS 也一并收起，避免搜出点了放不了的歌。
 
-## 自动换音源试播
+## 自动换平台试播
 
-同一首《晴天》在五个平台都有条目，但某些平台的某些歌在自定义音源里取不到
-可播放地址（版权、音质档位、脚本支持范围）。这时不再直接弹「放不了」，
-而是自动换到别的平台试试 —— 实现见 `public/js/modules/05-playback/11a-lx-source-scan.js`。
+同一首《晴天》在五个平台都有条目，但某些平台的某些歌取不到可播放地址
+（版权、音质档位、音源脚本支持范围）。这时不再直接弹「放不了」，
+而是自动换到别的平台试试。
+
+**换的是「播放平台」，不是「音源脚本」**：自始至终用的是同一个音源脚本，
+只是让它拿另一个平台的 id 去取链（请求里的 `provider` 变，`/api/user-api/song/url` 不变）。
+实现见 `public/js/modules/05-playback/11a-lx-platform-scan.js`。
 
 触发时机（`13-playback-start-audio.js` 里两处）：
 
@@ -78,11 +82,12 @@ LX 音源按「页码」翻页，各家每页返回的条数并不总等于请�
 
 - 按 `netease → qq → kugou → kuwo → migu` 的顺序筛出**能搜到、且当前音源脚本
   声明支持 `musicUrl`** 的平台，去掉当前平台，最多试 5 个
-- 每换一个平台**先等 0.5 秒**（`LX_SOURCE_SCAN_INTERVAL_MS`）再取链，第一个成功即停
+- 每换一个平台**先等 0.5 秒**（`LX_PLATFORM_SCAN_INTERVAL_MS`）再取链，第一个成功即停；
+  控制台会打印在试哪一个：`[LxPlatformScan] 试第 2/4 个平台：QQ音乐`
 - 命中后把队列里的条目换成那个平台的版本，并把已取到的地址直接交给播放链路
-  （不重复取链），同时提示「已自动换音源」
+  （不重复取链），同时提示「已自动切换平台」
 - 全部失败就还原队列条目、返回 `null`，交回既有的「已登录平台兜底」与提示流程
-- 换源后的那次播放带 `lxSourceScanDepth: 1`，失败不会再往下扫，避免递归
+- 换平台后的那次播放带 `lxPlatformScanDepth: 1`，失败不会再往下扫，避免递归
 
 候选来源（优先用零成本的）：
 
@@ -96,8 +101,8 @@ LX 音源按「页码」翻页，各家每页返回的条数并不总等于请�
 ## 自检
 
 ```bat
-:: 离线（不联网）：字段换算、加密签名、分页、前端接线、换源试播
-node --test tests/lx-search.test.js tests/lx-search-frontend.test.js tests/lx-source-scan.test.js
+:: 离线（不联网）：字段换算、加密签名、分页、前端接线、换平台试播
+node --test tests/lx-search.test.js tests/lx-search-frontend.test.js tests/lx-platform-scan.test.js
 
 :: 联网冒烟：五个平台真实接口 + /api/lx/search 端点
 node scripts/check-lx-search-live.js
@@ -108,7 +113,8 @@ node scripts/check-lx-playback-live.js
 
 `check-lx-playback-live.js` 按平台逐首点播并打印 `[UserApi]` 取链日志，
 排查「搜到歌放不了」时先用它，能看到 `audio.src` 到底落在内置接口还是音源脚本上。
-换源试播时控制台会多一行 `[LxSourceScan] <原平台> → <新平台> 找到可播放版本`。
+换平台试播时控制台会多两行 `[LxPlatformScan] 试第 N/M 个平台：QQ音乐`
+与 `[LxPlatformScan] 网易云音乐 → QQ音乐 找到可播放版本`。
 
 Electron 渲染进程里的标签栏行为由 `scripts/check-user-api-panel-live.js` 的
 「1d. LX 搜索标签」段覆盖。

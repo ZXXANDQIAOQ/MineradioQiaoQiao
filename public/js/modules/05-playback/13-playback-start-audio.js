@@ -1253,12 +1253,13 @@ async function playQueueAt(idx, opts) {
         if (userApiFallbackData) data = userApiFallbackData;
       }
       if (!data || !data.url) {
-        // LX 音源逐一试播：本平台取不到可播放地址时，按 0.5 秒间隔换下一个音源平台，
-        // 先把能播的版本找出来再决定放什么（见 11a-lx-source-scan.js）。
-        var lxScanFallback = typeof tryLxSourceScanFallback === 'function'
-          ? await tryLxSourceScanFallback(song, data, idx, token, retryPlaybackOpts, requestedQuality)
+        // 多平台逐一试播：本平台取不到可播放地址时，按 0.5 秒间隔换下一个播放平台，
+        // 先把能播的版本找出来再决定放什么；音源脚本始终是同一个
+        // （见 11a-lx-platform-scan.js）。
+        var lxPlatformFallback = typeof tryLxPlatformScanFallback === 'function'
+          ? await tryLxPlatformScanFallback(song, data, idx, token, retryPlaybackOpts, requestedQuality)
           : null;
-        if (lxScanFallback !== null) return lxScanFallback === true;
+        if (lxPlatformFallback !== null) return lxPlatformFallback === true;
         var fallbackResult = await tryAutoPlaybackFallback(song, data, idx, token, retryPlaybackOpts);
         if (fallbackResult !== null) return fallbackResult === true;
         if (opts.startupAutoplay) {
@@ -1469,9 +1470,9 @@ async function playQueueAt(idx, opts) {
           ? sourceFallbackRecoveryFromOptions(retryPlaybackOpts)
           : null;
         if (!opts.manual && (!opts.startupAutoplay || mediaFailureRecovery)) {
-          // 地址拿到了但媒体起不来（直链失效 / 防盗链），同样按 0.5 秒间隔换音源再试
-          var lxMediaScan = typeof tryLxSourceScanFallback === 'function'
-            ? await tryLxSourceScanFallback(
+          // 地址拿到了但媒体起不来（直链失效 / 防盗链），同样按 0.5 秒间隔换平台再试
+          var lxMediaPlatformScan = typeof tryLxPlatformScanFallback === 'function'
+            ? await tryLxPlatformScanFallback(
               song,
               Object.assign({}, data || {}, { url: null, reason: 'media_start_failed' }),
               idx,
@@ -1480,7 +1481,7 @@ async function playQueueAt(idx, opts) {
               requestedQuality
             )
             : null;
-          if (lxMediaScan !== null) return lxMediaScan === true;
+          if (lxMediaPlatformScan !== null) return lxMediaPlatformScan === true;
           var mediaFailureFallback = await tryAutoPlaybackFallback(
             song,
             Object.assign({}, data || {}, { url: null, reason: 'media_start_failed' }),
